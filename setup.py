@@ -10,14 +10,13 @@ except ImportError:  # Deps not yet installed
     __author__ = __email__ = ''
 
 setup(name='multigrate',
-      version='1.0',
+      version='1.0.0',
       description='Multi-omic data integration and transformation for single-cell genomics',
       long_description=long_description,
       long_description_content_type="text/markdown",
       url='https://github.com/theislab/multigrate',
       author=__author__,
       author_email=__email__,
-      license='MIT',
       packages=find_packages(),
       zip_safe=False,
       install_requires=[

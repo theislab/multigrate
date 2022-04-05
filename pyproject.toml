@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "multigrate"
+version = "1.0.0"
+description = "multiomic data integration for signle-cell genomics"
+authors = ["Anastasia Litinetskaya <alitinet@gmail.com>"]
+homepage = "https://github.com/theislab/cpa/"
+license = "BSD-3-Clause"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.11"
+scikit-learn = "^1.0.2"
+statsmodels = "^0.13.2"
+numba = "^0.55.1"
+tables = "^3.7.0"
+python-igraph = "^0.9.9"
+notebook = "^6.4.10"
+leidenalg = "^0.8.9"
+louvain = "^0.7.1"
+torch = "^1.11.0"
+scanpy = "^1.9.0"
+scvi-tools = "0.14.0"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -6,13 +6,7 @@ import pandas as pd
 from sklearn.metrics.cluster import silhouette_samples, silhouette_score
 
 
-def silhouette(
-        adata,
-        group_key,
-        embed,
-        metric='euclidean',
-        scale=True
-):
+def silhouette(adata, group_key, embed, metric="euclidean", scale=True):
     """
     Wrapper for sklearn silhouette function values range from [-1, 1] with
         1 being an ideal fit
@@ -26,11 +20,9 @@ def silhouette(
     """
     if embed not in adata.obsm.keys():
         print(adata.obsm.keys())
-        raise KeyError(f'{embed} not in obsm')
+        raise KeyError(f"{embed} not in obsm")
     asw = silhouette_score(
-        X=adata.obsm[embed],
-        labels=adata.obs[group_key],
-        metric=metric
+        X=adata.obsm[embed], labels=adata.obs[group_key], metric=metric
     )
     if scale:
         asw = (asw + 1) / 2
@@ -38,14 +30,14 @@ def silhouette(
 
 
 def silhouette_batch(
-        adata,
-        batch_key,
-        group_key,
-        embed,
-        metric='euclidean',
-        return_all=False,
-        scale=True,
-        verbose=True
+    adata,
+    batch_key,
+    group_key,
+    embed,
+    metric="euclidean",
+    return_all=False,
+    scale=True,
+    verbose=True,
 ):
     """
     Absolute silhouette score of batch labels subsetted for each group.
@@ -65,9 +57,9 @@ def silhouette_batch(
     """
     if embed not in adata.obsm.keys():
         print(adata.obsm.keys())
-        raise KeyError(f'{embed} not in obsm')
+        raise KeyError(f"{embed} not in obsm")
 
-    sil_all = pd.DataFrame(columns=['group', 'silhouette_score'])
+    sil_all = pd.DataFrame(columns=["group", "silhouette_score"])
 
     for group in adata.obs[group_key].unique():
         adata_group = adata[adata.obs[group_key] == group]
@@ -77,9 +69,7 @@ def silhouette_batch(
             continue
 
         sil_per_group = silhouette_samples(
-            adata_group.obsm[embed],
-            adata_group.obs[batch_key],
-            metric=metric
+            adata_group.obsm[embed], adata_group.obs[batch_key], metric=metric
         )
 
         # take only absolute value
@@ -90,18 +80,20 @@ def silhouette_batch(
             sil_per_group = [1 - i for i in sil_per_group]
 
         sil_all = sil_all.append(
-            pd.DataFrame({
-                'group': [group] * len(sil_per_group),
-                'silhouette_score': sil_per_group
-            })
+            pd.DataFrame(
+                {
+                    "group": [group] * len(sil_per_group),
+                    "silhouette_score": sil_per_group,
+                }
+            )
         )
 
     sil_all = sil_all.reset_index(drop=True)
-    sil_means = sil_all.groupby('group').mean()
-    asw = sil_means['silhouette_score'].mean()
+    sil_means = sil_all.groupby("group").mean()
+    asw = sil_means["silhouette_score"].mean()
 
     if verbose:
-        print(f'mean silhouette per cell: {sil_means}')
+        print(f"mean silhouette per cell: {sil_means}")
 
     if return_all:
         return asw, sil_means, sil_all

@@ -39,11 +39,11 @@ def nmi(adata, group1, group2, method="arithmetic", nmi_dir=None):
 
     if len(group1) != len(group2):
         raise ValueError(
-            f'different lengths in group1 ({len(group1)}) and group2 ({len(group2)})'
+            f"different lengths in group1 ({len(group1)}) and group2 ({len(group2)})"
         )
 
     # choose method
-    if method in ['max', 'min', 'geometric', 'arithmetic']:
+    if method in ["max", "min", "geometric", "arithmetic"]:
         nmi_value = normalized_mutual_info_score(group1, group2, average_method=method)
     elif method == "Lancichinetti":
         nmi_value = nmi_Lanc(group1, group2, nmi_dir=nmi_dir)
@@ -75,7 +75,8 @@ def onmi(group1, group2, nmi_dir=None, verbose=True):
     nmi_call = subprocess.Popen(
         [nmi_dir + "onmi", group1_file, group2_file],
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT)
+        stderr=subprocess.STDOUT,
+    )
 
     stdout, stderr = nmi_call.communicate()
     if stderr:
@@ -85,7 +86,7 @@ def onmi(group1, group2, nmi_dir=None, verbose=True):
     if verbose:
         print(nmi_out)
 
-    nmi_split = [x.strip().split('\t') for x in nmi_out.split('\n')]
+    nmi_split = [x.strip().split("\t") for x in nmi_out.split("\n")]
     nmi_max = float(nmi_split[0][1])
 
     # remove temporary files
@@ -104,7 +105,8 @@ def nmi_Lanc(group1, group2, nmi_dir="external/mutual3/", verbose=True):
 
     if nmi_dir is None:
         raise FileNotFoundError(
-            "Please provide the directory of the compiled C code from https://sites.google.com/site/andrealancichinetti/mutual3.tar.gz")
+            "Please provide the directory of the compiled C code from https://sites.google.com/site/andrealancichinetti/mutual3.tar.gz"
+        )
 
     group1_file = write_tmp_labels(group1, to_int=False)
     group2_file = write_tmp_labels(group2, to_int=False)
@@ -112,17 +114,18 @@ def nmi_Lanc(group1, group2, nmi_dir="external/mutual3/", verbose=True):
     nmi_call = subprocess.Popen(
         [nmi_dir + "mutual", group1_file, group2_file],
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT)
+        stderr=subprocess.STDOUT,
+    )
 
     stdout, stderr = nmi_call.communicate()
     if stderr:
         print(stderr)
     nmi_out = stdout.decode().strip()
 
-    return float(nmi_out.split('\t')[1])
+    return float(nmi_out.split("\t")[1])
 
 
-def write_tmp_labels(group_assignments, to_int=False, delim='\n'):
+def write_tmp_labels(group_assignments, to_int=False, delim="\n"):
     """
     write the values of a specific obs column into a temporary file in text format
     needed for external C NMI implementations (onmi and nmi_Lanc functions), because they require files as input
@@ -145,7 +148,7 @@ def write_tmp_labels(group_assignments, to_int=False, delim='\n'):
     for i, label in enumerate(group_assignments):
         clusters[label].append(str(i))
 
-    output = '\n'.join([' '.join(c) for c in clusters.values()])
+    output = "\n".join([" ".join(c) for c in clusters.values()])
     output = str.encode(output)
 
     # write to file

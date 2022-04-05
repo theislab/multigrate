@@ -32,6 +32,7 @@ from matplotlib import pyplot as plt
 
 logger = logging.getLogger(__name__)
 
+
 class MultiVAE(BaseModelClass):
     def __init__(
         self,
@@ -40,53 +41,70 @@ class MultiVAE(BaseModelClass):
         integrate_on=None,
         condition_encoders=False,
         condition_decoders=True,
-        normalization='layer',
+        normalization="layer",
         z_dim=15,
         h_dim=32,
         losses=[],
         dropout=0.2,
         cond_dim=10,
-        kernel_type='not gaussian',
+        kernel_type="not gaussian",
         loss_coefs=[],
         integrate_on_idx=None,
-        cont_cov_type='logsigm',
+        cont_cov_type="logsigm",
         n_layers_cont_embed: int = 1,
-        n_layers_encoders = [],
-        n_layers_decoders = [],
+        n_layers_encoders=[],
+        n_layers_decoders=[],
         n_layers_shared_decoder: int = 1,
         n_hidden_cont_embed: int = 32,
-        n_hidden_encoders = [],
-        n_hidden_decoders = [],
+        n_hidden_encoders=[],
+        n_hidden_decoders=[],
         n_hidden_shared_decoder: int = 32,
-        add_shared_decoder = True,
-        ignore_categories = [],
+        add_shared_decoder=True,
+        ignore_categories=[],
     ):
 
         super().__init__(adata)
 
         # TODO: add options for number of hidden layers, hidden layers dim and output activation functions
-        if normalization not in ['layer', 'batch', None]:
+        if normalization not in ["layer", "batch", None]:
             raise ValueError(f'Normalization has to be one of ["layer", "batch", None]')
         # TODO: do some assertions for other parameters
 
         num_groups = 1
         integrate_on_idx = None
         if integrate_on:
-            if integrate_on not in adata.uns['_scvi']['extra_categoricals']['keys']:
-                raise ValueError(f'Cannot integrate on {integrate_on}, has to be one of extra categoricals = {adata.uns["_scvi"]["extra_categoricals"]["keys"]}')
+            if integrate_on not in adata.uns["_scvi"]["extra_categoricals"]["keys"]:
+                raise ValueError(
+                    f'Cannot integrate on {integrate_on}, has to be one of extra categoricals = {adata.uns["_scvi"]["extra_categoricals"]["keys"]}'
+                )
             else:
-                num_groups = len(adata.uns['_scvi']['extra_categoricals']['mappings'][integrate_on])
-                integrate_on_idx = adata.uns['_scvi']['extra_categoricals']['keys'].index(integrate_on)
+                num_groups = len(
+                    adata.uns["_scvi"]["extra_categoricals"]["mappings"][integrate_on]
+                )
+                integrate_on_idx = adata.uns["_scvi"]["extra_categoricals"][
+                    "keys"
+                ].index(integrate_on)
 
         self.adata = adata
 
         cont_covariate_dims = []
-        if adata.uns['_scvi'].get('extra_continuous_keys') is not None:
-            cont_covariate_dims = [1 for key in adata.uns['_scvi']['extra_continuous_keys'] if key != 'size_factors' and key not in ignore_categories]
+        if adata.uns["_scvi"].get("extra_continuous_keys") is not None:
+            cont_covariate_dims = [
+                1
+                for key in adata.uns["_scvi"]["extra_continuous_keys"]
+                if key != "size_factors" and key not in ignore_categories
+            ]
 
         cat_covariate_dims = []
-        if adata.uns['_scvi'].get('extra_categoricals') is not None:
-            cat_covariate_dims = [num_cat for i, num_cat in enumerate(adata.uns['_scvi']['extra_categoricals']['n_cats_per_key']) if adata.uns['_scvi']['extra_categoricals']['keys'][i] not in ignore_categories]
+        if adata.uns["_scvi"].get("extra_categoricals") is not None:
+            cat_covariate_dims = [
+                num_cat
+                for i, num_cat in enumerate(
+                    adata.uns["_scvi"]["extra_categoricals"]["n_cats_per_key"]
+                )
+                if adata.uns["_scvi"]["extra_categoricals"]["keys"][i]
+                not in ignore_categories
+            ]
 
         self.module = MultiVAETorch(
             modality_lengths=modality_lengths,
@@ -118,12 +136,7 @@ class MultiVAE(BaseModelClass):
 
         self.init_params_ = self._get_init_params(locals())
 
-    def impute(
-        self,
-        target_modality,
-        adata=None,
-        batch_size=64
-    ):
+    def impute(self, target_modality, adata=None, batch_size=64):
         with torch.no_grad():
             self.module.eval()
             if not self.is_trained_:
@@ -131,29 +144,20 @@ class MultiVAE(BaseModelClass):
 
             adata = self._validate_anndata(adata)
 
-            scdl = self._make_data_loader(
-                adata=self.adata, batch_size=batch_size
-            )
+            scdl = self._make_data_loader(adata=self.adata, batch_size=batch_size)
 
             imputed = []
             for tensors in scdl:
-                _, generative_outputs = self.module.forward(
-                    tensors,
-                    compute_loss=False
-                )
+                _, generative_outputs = self.module.forward(tensors, compute_loss=False)
 
-                rs = generative_outputs['rs']
+                rs = generative_outputs["rs"]
                 r = rs[target_modality]
                 imputed += [r.cpu()]
 
             return torch.cat(imputed).squeeze().numpy()
 
     # TODO fix to work with  @torch.no_grad()
-    def get_latent_representation(
-        self,
-        adata=None,
-        batch_size=64
-    ):
+    def get_latent_representation(self, adata=None, batch_size=64):
         with torch.no_grad():
             self.module.eval()
             if not self.is_trained_:
@@ -161,18 +165,16 @@ class MultiVAE(BaseModelClass):
 
             adata = self._validate_anndata(adata)
 
-            scdl = self._make_data_loader(
-                adata=adata, batch_size=batch_size
-            )
+            scdl = self._make_data_loader(adata=adata, batch_size=batch_size)
 
             latent = []
             for tensors in scdl:
                 inference_inputs = self.module._get_inference_input(tensors)
                 outputs = self.module.inference(**inference_inputs)
-                z = outputs['z_joint']
+                z = outputs["z_joint"]
                 latent += [z.cpu()]
-        
-        adata.obsm['latent'] = torch.cat(latent).numpy()
+
+        adata.obsm["latent"] = torch.cat(latent).numpy()
 
     def train(
         self,
@@ -232,7 +234,7 @@ class MultiVAE(BaseModelClass):
         **kwargs
             Other keyword args for :class:`~scvi.train.Trainer`.
         """
-        n_epochs_kl_warmup = max(max_epochs//3, 1)
+        n_epochs_kl_warmup = max(max_epochs // 3, 1)
         update_dict = dict(
             lr=lr,
             weight_decay=weight_decay,
@@ -279,20 +281,24 @@ class MultiVAE(BaseModelClass):
 
     def setup_anndata(
         adata,
-        rna_indices_end = None,
-        categorical_covariate_keys = None,
-        continuous_covariate_keys = None,
+        rna_indices_end=None,
+        categorical_covariate_keys=None,
+        continuous_covariate_keys=None,
     ):
         if rna_indices_end is not None:
             if scipy.sparse.issparse(adata.X):
-                adata.obs.loc[:, 'size_factors'] = adata[:, :rna_indices_end].X.A.sum(1).T.tolist()
+                adata.obs.loc[:, "size_factors"] = (
+                    adata[:, :rna_indices_end].X.A.sum(1).T.tolist()
+                )
             else:
-                adata.obs.loc[:, 'size_factors'] = adata[:, :rna_indices_end].X.sum(1).T.tolist()
+                adata.obs.loc[:, "size_factors"] = (
+                    adata[:, :rna_indices_end].X.sum(1).T.tolist()
+                )
 
             if continuous_covariate_keys:
-                continuous_covariate_keys.append('size_factors')
+                continuous_covariate_keys.append("size_factors")
             else:
-                continuous_covariate_keys = ['size_factors']
+                continuous_covariate_keys = ["size_factors"]
 
         return _setup_anndata(
             adata,
@@ -302,29 +308,31 @@ class MultiVAE(BaseModelClass):
 
     # TODO add new losses
     def plot_losses(self, save=None):
-        df = pd.DataFrame(self.history['train_loss_epoch'])
+        df = pd.DataFrame(self.history["train_loss_epoch"])
         for key in self.history.keys():
-            if key != 'train_loss_epoch':
+            if key != "train_loss_epoch":
                 df = df.join(self.history[key])
 
-        df['epoch'] = df.index
+        df["epoch"] = df.index
 
         plt.figure(figsize=(15, 10))
 
-        loss_names = ['kl_local', 'elbo', 'reconstruction_loss']
-        if self.module.loss_coefs['integ'] != 0:
-            loss_names.append('integ')
+        loss_names = ["kl_local", "elbo", "reconstruction_loss"]
+        if self.module.loss_coefs["integ"] != 0:
+            loss_names.append("integ")
 
         nrows = 2
 
         for i, name in enumerate(loss_names):
-            plt.subplot(nrows, 2, i+1)
-            plt.plot(df['epoch'], df[name+'_train'], '.-', label=name+'_train')
-            plt.plot(df['epoch'], df[name+'_validation'], '.-', label=name+'_validation')
-            plt.xlabel('epoch')
+            plt.subplot(nrows, 2, i + 1)
+            plt.plot(df["epoch"], df[name + "_train"], ".-", label=name + "_train")
+            plt.plot(
+                df["epoch"], df[name + "_validation"], ".-", label=name + "_validation"
+            )
+            plt.xlabel("epoch")
             plt.legend()
         if save is not None:
-            plt.savefig(save, bbox_inches='tight')
+            plt.savefig(save, bbox_inches="tight")
 
     @classmethod
     def load_query_data(
@@ -332,7 +340,7 @@ class MultiVAE(BaseModelClass):
         adata: AnnData,
         reference_model: BaseModelClass,
         use_gpu: Optional[Union[str, int, bool]] = None,
-        freeze: bool = True
+        freeze: bool = True,
     ):
         use_gpu, device = parse_use_gpu_arg(use_gpu)
 
@@ -346,10 +354,18 @@ class MultiVAE(BaseModelClass):
             setattr(model, attr, val)
 
         # model tweaking
-        num_of_cat_to_add = [new_cat - old_cat for old_cat, new_cat in zip(reference_model.adata.uns['_scvi']['extra_categoricals']['n_cats_per_key'], adata.uns['_scvi']['extra_categoricals']['n_cats_per_key'])]
-        
+        num_of_cat_to_add = [
+            new_cat - old_cat
+            for old_cat, new_cat in zip(
+                reference_model.adata.uns["_scvi"]["extra_categoricals"][
+                    "n_cats_per_key"
+                ],
+                adata.uns["_scvi"]["extra_categoricals"]["n_cats_per_key"],
+            )
+        ]
+
         new_state_dict = model.module.state_dict()
-        for key, load_ten in load_state_dict.items(): # load_state_dict = old
+        for key, load_ten in load_state_dict.items():  # load_state_dict = old
             new_ten = new_state_dict[key]
             if new_ten.size() == load_ten.size():
                 continue
@@ -374,7 +390,9 @@ class MultiVAE(BaseModelClass):
             for key, par in model.module.named_parameters():
                 par.requires_grad = False
             for i, embed in enumerate(model.module.cat_covariate_embeddings):
-                if num_of_cat_to_add[i] > 0: # unfreeze the ones where categories were added
+                if (
+                    num_of_cat_to_add[i] > 0
+                ):  # unfreeze the ones where categories were added
                     embed.weight.requires_grad = True
             if model.module.integrate_on_idx:
                 model.module.theta.requires_grad = True

@@ -11,7 +11,7 @@ from ..utils._utils import check_adata, check_batch
 
 
 def ari(adata, group1, group2, implementation=None):
-    """ Adjusted Rand Index
+    """Adjusted Rand Index
     The function is symmetric, so group1 and group2 can be switched
     For single cell integration evaluation the scenario is:
         predicted cluster assignments vs. ground-truth (e.g. cell type) assignments
@@ -32,10 +32,10 @@ def ari(adata, group1, group2, implementation=None):
 
     if len(group1) != len(group2):
         raise ValueError(
-            f'different lengths in group1 ({len(group1)}) and group2 ({len(group2)})'
+            f"different lengths in group1 ({len(group1)}) and group2 ({len(group2)})"
         )
 
-    if implementation == 'sklearn':
+    if implementation == "sklearn":
         return adjusted_rand_score(group1, group2)
 
     def binom_sum(x, k=2):

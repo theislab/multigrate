@@ -1,8 +1,8 @@
 from scvi.train import AdversarialTrainingPlan
 from scvi import _CONSTANTS
 
-class MultiVAETrainingPlan(AdversarialTrainingPlan):
 
+class MultiVAETrainingPlan(AdversarialTrainingPlan):
     def validation_step(self, batch, batch_idx):
         _, _, scvi_loss = self.forward(batch, loss_kwargs=self.loss_kwargs)
         reconstruction_loss = scvi_loss.reconstruction_loss
@@ -12,7 +12,7 @@ class MultiVAETrainingPlan(AdversarialTrainingPlan):
             "kl_local_sum": scvi_loss.kl_local.sum(),
             "kl_global": scvi_loss.kl_global,
             "n_obs": reconstruction_loss.shape[0],
-            "integ_loss": scvi_loss.integ_loss
+            "integ_loss": scvi_loss.integ_loss,
         }
 
     def validation_epoch_end(self, outputs):
