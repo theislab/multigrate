@@ -4,7 +4,7 @@ Installation
 Prerequisites
 ~~~~~~~~~~~~~~
 
-CPA can be installed via PyPI.
+Multigrate can be installed via PyPI.
 
 conda prerequisites
 ###################
