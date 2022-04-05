@@ -1,0 +1,11 @@
+scikit-learn
+statsmodels
+numba
+tables
+python-igraph
+notebook
+leidenalg
+louvain
+torch
+scanpy
+scvi-tools==0.14.0
