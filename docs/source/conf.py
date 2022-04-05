@@ -30,9 +30,9 @@ extensions = [
     "sphinx_autodoc_typehints",  # needs to be after napoleon
     "sphinx.ext.intersphinx",
     "sphinx.ext.autosummary",
-    "scanpydoc.elegant_typehints",
-    "scanpydoc.definition_list_typed_field",
-    "scanpydoc.autosummary_generate_imported",
+    # "scanpydoc.elegant_typehints",
+    # "scanpydoc.definition_list_typed_field",
+    # "scanpydoc.autosummary_generate_imported",
 ]
 
 # nbsphinx specific settings
