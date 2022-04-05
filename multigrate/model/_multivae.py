@@ -1,27 +1,17 @@
-import sys
 import torch
-import time
-import os
 import scipy
 
-import numpy as np
 import pandas as pd
-import scanpy as sc
-import anndata as ad
 
 import logging
-from torch import nn
 from anndata import AnnData
 from copy import deepcopy
-from collections import defaultdict, Counter
-from operator import itemgetter, attrgetter
-from torch.nn import functional as F
-from itertools import cycle, zip_longest, groupby
+
 from ..module import MultiVAETorch
 from ..train import MultiVAETrainingPlan
 from ..distributions import *
 from scvi.data._anndata import _setup_anndata
-from scvi.dataloaders import DataSplitter, AnnDataLoader
+from scvi.dataloaders import DataSplitter
 from typing import List, Optional, Union
 from scvi.model.base import BaseModelClass
 from scvi.train._callbacks import SaveBestState
@@ -34,32 +24,67 @@ logger = logging.getLogger(__name__)
 
 
 class MultiVAE(BaseModelClass):
+    """CPA model
+    Parameters
+    ----------
+    adata
+        AnnData object that has been registered via :meth:`~multigrate.model.MultiVAE.setup_anndata`.
+    modality_lengths
+        Number of features for each modality. Has to be the same length as the number of modalities.
+    integrate_on
+        One of the categorical covariates refistered with :meth:`~multigrate.model.MultiVAE.setup_anndata` to integrate on. The latent space then will be disentangled from this covariate. If `None`, no integration is performed.
+    condition_encoders
+        Whether to concatentate covariate embeddings to the first layer of the encoders. Default is `False`.
+    condition_decoders
+        Whether to concatentate covariate embeddings to the first layer of the decoders. Default is `True`.
+    normalization
+        What normalization to use; has to be one of `batch` or `layer`. Default is `layer`.
+    z_dim
+        Dimensionality of the latent space. Default is 15.
+    losses
+        Which losses to use for each modality. Has to be the same length as the number of modalities. Default is `MSE` for all modalities.
+    dropout
+        Dropout rate. Default is 0.2.
+    cond_dim
+        Dimensionality of the covariate embeddings. Default is 10.
+    loss_coefs
+        Loss coeficients for the different losses in the model. Default is 1 for all.
+    n_layers_encoders
+        Number of layers for each encoder. Default is 2 for all modalities. Has to be the same length as the number of modalities.
+    n_layers_decoders
+        Number of layers for each decoder. Default is 2 for all modalities. Has to be the same length as the number of modalities.
+    n_hidden_encoders
+        Number of nodes for each hidden layer in the encoders. Default is 32.
+    n_hidden_decoders
+        Number of nodes for each hidden layer in the decoders. Default is 32.
+    """
+
     def __init__(
         self,
-        adata,
-        modality_lengths,
-        integrate_on=None,
-        condition_encoders=False,
-        condition_decoders=True,
-        normalization="layer",
-        z_dim=15,
-        h_dim=32,
-        losses=[],
-        dropout=0.2,
-        cond_dim=10,
+        adata: AnnData,
+        modality_lengths: List[int],
+        integrate_on: Optional[str] = None,
+        condition_encoders: bool = False,
+        condition_decoders: bool = True,
+        normalization: str = "layer",
+        z_dim: int = 15,
+        h_dim: int = 32,
+        losses: List[str] = [],
+        dropout: float = 0.2,
+        cond_dim: int = 10,
         kernel_type="not gaussian",
         loss_coefs=[],
         integrate_on_idx=None,
         cont_cov_type="logsigm",
         n_layers_cont_embed: int = 1,
-        n_layers_encoders=[],
-        n_layers_decoders=[],
+        n_layers_encoders: List[int] = [],
+        n_layers_decoders: List[int] = [],
         n_layers_shared_decoder: int = 1,
         n_hidden_cont_embed: int = 32,
-        n_hidden_encoders=[],
-        n_hidden_decoders=[],
+        n_hidden_encoders: List[int] = [],
+        n_hidden_decoders: List[int] = [],
         n_hidden_shared_decoder: int = 32,
-        add_shared_decoder=True,
+        add_shared_decoder=False,
         ignore_categories=[],
     ):
 
@@ -190,7 +215,6 @@ class MultiVAE(BaseModelClass):
         save_best: bool = True,
         check_val_every_n_epoch: Optional[int] = None,
         n_steps_kl_warmup: Optional[int] = None,
-        adversarial_mixing: bool = True,
         plan_kwargs: Optional[dict] = None,
         **kwargs,
     ):

@@ -1,19 +1,9 @@
-import sys
-import time
-import os
 import torch
-
-import numpy as np
-import pandas as pd
-import scanpy as sc
 
 from torch import nn
 from torch.nn import functional as F
-from itertools import groupby
-from collections import defaultdict, Counter
 from ..distributions import *
 from ..nn import *
-from operator import itemgetter, attrgetter
 from scvi.module.base import BaseModuleClass, LossRecorder, auto_move_data
 from scvi import _CONSTANTS
 from scvi.distributions import NegativeBinomial, ZeroInflatedNegativeBinomial
@@ -91,11 +81,9 @@ class MultiVAETorch(BaseModuleClass):
 
         # TODO: add warning that using these
         if len(n_layers_encoders) == 0:
-            n_layers_encoders = [
-                2
-            ] * self.n_modality  # 2 here because decoders are usually 2 layers as mlp layer if followed by loss specific layer, e.g. mean_decoder
+            n_layers_encoders = [2] * self.n_modality
         if len(n_layers_decoders) == 0:
-            n_layers_decoders = [1] * self.n_modality
+            n_layers_decoders = [2] * self.n_modality
         if len(n_hidden_encoders) == 0:
             n_hidden_encoders = [128] * self.n_modality
         if len(n_hidden_decoders) == 0:
