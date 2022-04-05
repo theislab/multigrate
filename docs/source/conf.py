@@ -5,14 +5,6 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 # -- Path setup --------------------------------------------------------------
-
-import sys
-from pathlib import Path
-
-HERE = Path(__file__).parent
-sys.path[:0] = [str(HERE.parent), str(HERE / "extensions")]
-
-
 # -- Project information -----------------------------------------------------
 
 project = "multigrate"
@@ -41,7 +33,6 @@ extensions = [
     "scanpydoc.elegant_typehints",
     "scanpydoc.definition_list_typed_field",
     "scanpydoc.autosummary_generate_imported",
-    *[p.stem for p in (HERE / "extensions").glob("*.py")],
 ]
 
 # nbsphinx specific settings
