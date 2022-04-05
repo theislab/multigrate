@@ -12,4 +12,5 @@ nbsphinx
 sphinx>=1.4
 ipykernel
 nbsphinx_link
+docutils
 scvi-tools==0.14.0
