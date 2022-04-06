@@ -1,1 +1,1 @@
-# Multigrate: multiomic data integration for signle-cell genomics
+# Multigrate: multiomic data integration for single-cell genomics
