@@ -2,7 +2,7 @@ Installation
 ============
 
 Prerequisites
-~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 Multigrate can be installed via PyPI.
 
@@ -18,6 +18,8 @@ conda prerequisites
 3. Activate your environment::
 
     source activate multigrate
+
+.. _Miniconda: https://conda.io/miniconda.html
 
 Multigrate installation
 ~~~~~~~~~~~~~~~~~~~~~~~

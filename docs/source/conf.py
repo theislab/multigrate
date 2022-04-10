@@ -83,7 +83,7 @@ myst_enable_extensions = [
 ]
 
 # The master toctree document.
-master_doc = "index"
+master_doc = "source/index"
 
 intersphinx_mapping = dict(
     anndata=("https://anndata.readthedocs.io/en/stable/", None),
