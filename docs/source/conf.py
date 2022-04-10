@@ -52,7 +52,7 @@ extensions = [
 
 
 # nbsphinx specific settings
-exclude_patterns = ["_build", "**.ipynb_checkpoints", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "**.ipynb_checkpoints", "Thumbs.db", ".DS_Store", "venv"]
 nbsphinx_execute = "never"
 
 # Add any paths that contain templates here, relative to this directory.

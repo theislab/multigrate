@@ -1,5 +1,5 @@
 Multigrate: multiomic integration for single-cell genomics.
-======================================
+===========================================================
 
 .. note::
 
