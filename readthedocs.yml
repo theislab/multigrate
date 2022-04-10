@@ -1,10 +1,10 @@
 version: 2
 build:
-  image: latest
+  image: testing
 sphinx:
   configuration: docs/conf.py
 python:
-  version: "3.8"
+  version: "3.9"
   install:
   - method: pip
     path: .
