@@ -12,16 +12,18 @@ from pathlib import Path
 HERE = Path(__file__).parent
 sys.path[:0] = [str(HERE.parent), str(HERE / "extensions")]
 
-import multigrate as mtg
+import multigrate
 
 # -- Project information -----------------------------------------------------
 
 project = "multigrate"
-copyright = "2022, Anastasia Litinetskaya, Mohammad Lotfollahi"
+copyright = "2022, TheisLab, ICB"
 author = "Anastasia Litinetskaya, Mohammad Lotfollahi"
 
 # The full version, including alpha/beta/rc tags
-release = "1.0.0"
+version = multigrate.__version__
+# The full version, including alpha/beta/rc tags.
+release = multigrate.__version__
 
 
 # -- General configuration ---------------------------------------------------
