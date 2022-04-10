@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "multigrate"
 version = "1.0.0"
-description = "multiomic data integration for signle-cell genomics"
+description = "multiomic data integration for single-cell genomics"
 authors = ["Anastasia Litinetskaya <anastasia.litinetskaya@helmholtz-muenchen.de>", "Mohammad Lotfollahi <mohammad.lotfollahi@helmholtz-muenchen.de>"]
 homepage = "https://github.com/theislab/multigrate/"
 license = "BSD-3-Clause"
@@ -27,7 +27,6 @@ importlib-metadata = { version = "*", optional = true }
 ipython = { version = ">=7.1.1", optional = true }
 leidenalg = "^0.8.9"
 louvain = "^0.7.1"
-torch = "^1.11.0"
 scanpy = "^1.9.0"
 python-igraph = { version = "*", optional = true }
 scanpydoc = { version = ">=0.5", optional = true }
@@ -58,7 +57,7 @@ tutorials = ["scanpy", "leidenalg", "python-igraph", "loompy", "scikit-misc"]
 [tool.poetry.dev-dependencies]
 
 [build-system]
-build-backend = "poetry.masonry.api"
+build-backend = "poetry.core.masonry.api"
 requires = [
     "poetry>=1.0",
     "setuptools", # keep it here or "pip install -e" would fail
