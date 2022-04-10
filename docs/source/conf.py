@@ -5,6 +5,15 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 # -- Path setup --------------------------------------------------------------
+
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).parent
+sys.path[:0] = [str(HERE.parent), str(HERE / "extensions")]
+
+import multigrate as mtg
+
 # -- Project information -----------------------------------------------------
 
 project = "multigrate"
@@ -12,14 +21,17 @@ copyright = "2022, Anastasia Litinetskaya, Mohammad Lotfollahi"
 author = "Anastasia Litinetskaya, Mohammad Lotfollahi"
 
 # The full version, including alpha/beta/rc tags
-release = "0.3.0"
+release = "1.0.0"
 
 
 # -- General configuration ---------------------------------------------------
 
+# If your documentation needs a minimal Sphinx version, state it here.
+#
+needs_sphinx = "4.3"  # Nicer param docs
+
 # Add any Sphinx extension module names here, as strings. They can be
-# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
-# ones.
+# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.viewcode",
@@ -27,13 +39,15 @@ extensions = [
     "nbsphinx_link",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
-    # "sphinx_autodoc_typehints",  # needs to be after napoleon
+    "sphinx_autodoc_typehints",  # needs to be after napoleon
     "sphinx.ext.intersphinx",
     "sphinx.ext.autosummary",
-    # "scanpydoc.elegant_typehints",
-    # "scanpydoc.definition_list_typed_field",
-    # "scanpydoc.autosummary_generate_imported",
+    "scanpydoc.elegant_typehints",
+    "scanpydoc.definition_list_typed_field",
+    "scanpydoc.autosummary_generate_imported",
+    *[p.stem for p in (HERE / "extensions").glob("*.py")],
 ]
+
 
 # nbsphinx specific settings
 exclude_patterns = ["_build", "**.ipynb_checkpoints", "Thumbs.db", ".DS_Store"]
@@ -46,6 +60,7 @@ templates_path = ["_templates"]
 # You can specify multiple suffix as a list of string:
 #
 source_suffix = [".rst", ".md"]
+# source_suffix = ".rst"
 
 # Generate the API documentation when building
 autosummary_generate = True
@@ -90,7 +105,7 @@ pygments_dark_style = "native"
 todo_include_todos = False
 
 html_theme = "sphinx_rtd_theme"
-html_title = "cpa-tools"
+html_title = "multigrate"
 
 html_show_sourcelink = False
 
