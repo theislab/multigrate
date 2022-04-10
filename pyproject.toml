@@ -6,6 +6,10 @@ authors = ["Anastasia Litinetskaya <anastasia.litinetskaya@helmholtz-muenchen.de
 homepage = "https://github.com/theislab/multigrate/"
 license = "BSD-3-Clause"
 readme = "README.md"
+packages = [
+    { include = "multigrate" }
+]
+
 
 [tool.poetry.dependencies]
 adjustText = { version = "*", optional = true }
