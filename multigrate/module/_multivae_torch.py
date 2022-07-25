@@ -24,7 +24,7 @@ class MultiVAETorch(BaseModuleClass):
         losses=[],
         dropout=0.2,
         cond_dim=10,
-        kernel_type="not gaussian",
+        kernel_type="gaussian",
         loss_coefs=[],
         num_groups=1,  # to integrate on
         integrate_on_idx=None,
@@ -40,6 +40,7 @@ class MultiVAETorch(BaseModuleClass):
         n_hidden_decoders=[],
         n_hidden_shared_decoder: int = 32,
         add_shared_decoder=True,
+        mmd="latent",  # or both or marginal
     ):
         super().__init__()
 
@@ -52,6 +53,7 @@ class MultiVAETorch(BaseModuleClass):
         self.add_shared_decoder = add_shared_decoder
         self.n_cont_cov = len(cont_covariate_dims)
         self.cont_cov_type = cont_cov_type
+        self.mmd = mmd
 
         # needed to query to reference
         self.normalization = normalization
@@ -94,11 +96,9 @@ class MultiVAETorch(BaseModuleClass):
             "kl": 1e-6,
             "integ": 1e-2,
             "cycle": 0,
-            "nb": 1,
-            "zinb": 1,
-            "mse": 1,
-            "bce": 1,
         }
+        for i in range(self.n_modality):
+            self.loss_coefs[str(i)] = 1
         self.loss_coefs.update(loss_coefs)
 
         # assume for now that can only use nb/zinb once, i.e. for RNA-seq modality
@@ -290,7 +290,9 @@ class MultiVAETorch(BaseModuleClass):
             masks = [x.sum(dim=1) > 0 for x in xs]  # list of masks per modality
             masks = torch.stack(masks, dim=1)
 
+        # if we want to condition encoders, i.e. concat covariates to the input
         if self.condition_encoders:
+            # check if need to concat categorical covariates
             if cat_covs is not None:
                 cat_embedds = [
                     cat_covariate_embedding(covariate.long())
@@ -305,22 +307,27 @@ class MultiVAETorch(BaseModuleClass):
                 cat_embedds = torch.cat(cat_embedds, dim=-1)
             else:
                 cat_embedds = torch.Tensor().to(self.device)
-
+            # check if need to concat continuous covariates
             if self.n_cont_cov > 0:
                 if cont_covs.shape[-1] != self.n_cont_cov:  # get rid of size_factors
-                    # raise RuntimeError("cont_covs.shape[-1] != self.n_cont_cov")
                     cont_covs = cont_covs[:, 0 : self.n_cont_cov]
                 cont_embedds = self.compute_cont_cov_embeddings_(cont_covs)
             else:
                 cont_embedds = torch.Tensor().to(self.device)
-
+            # concatenate input with categorical and continuous covariates
             xs = [
                 torch.cat([x, cat_embedds, cont_embedds], dim=-1) for x in xs
             ]  # concat embedding to each modality x along the feature axis
 
+        # TODO don't forward if mask is 0 for that dataset for that modality
+        # hs = hidden state that we get after the encoder but before calculating mu and logvar for each modality
         hs = [self.x_to_h(x, mod) for mod, x in enumerate(xs)]
+        # out = [zs_marginal, mus, logvars] and len(zs_marginal) = len(mus) = len(logvars) = number of modalities
         out = [self.bottleneck(h, mod) for mod, h in enumerate(hs)]
-        mus = [mod_out[1] for mod_out in out]  # TODO check if easier to use split
+        # split out into zs_marginal, mus and logvars TODO check if easier to use split
+        zs_marginal = [mod_out[0] for mod_out in out]
+        z_marginal = torch.stack(zs_marginal, dim=1)
+        mus = [mod_out[1] for mod_out in out]
         mu = torch.stack(mus, dim=1)
         logvars = [mod_out[2] for mod_out in out]
         logvar = torch.stack(logvars, dim=1)
@@ -329,7 +336,9 @@ class MultiVAETorch(BaseModuleClass):
         # drop mus and logvars according to masks for kl calculation
         # TODO here or in loss calculation? check multiVI
         # return mus+mus_joint
-        return dict(z_joint=z_joint, mu=mu_joint, logvar=logvar_joint)
+        return dict(
+            z_joint=z_joint, mu=mu_joint, logvar=logvar_joint, z_marginal=z_marginal
+        )
 
     @auto_move_data
     def generative(self, z_joint, cat_covs, cont_covs):
@@ -398,21 +407,60 @@ class MultiVAETorch(BaseModuleClass):
         mu = inference_outputs["mu"]
         logvar = inference_outputs["logvar"]
         z_joint = inference_outputs["z_joint"]
+        z_marginal = inference_outputs[
+            "z_marginal"
+        ]  # batch_size x n_modalities x latent_dim
 
         xs = torch.split(
             x, self.input_dims, dim=-1
         )  # list of tensors of len = n_mod, each tensor is of shape batch_size x mod_input_dim
-        masks = [x.sum(dim=1) > 0 for x in xs]
+        masks = [x.sum(dim=1) > 0 for x in xs]  # [batch_size] * num_modalities
 
-        recon_loss = self.calc_recon_loss(
+        recon_loss, modality_recon_losses = self.calc_recon_loss(
             xs, rs, self.losses, integrate_on, size_factor, self.loss_coefs, masks
         )
         kl_loss = kl(Normal(mu, torch.sqrt(torch.exp(logvar))), Normal(0, 1)).sum(dim=1)
-        integ_loss = (
-            torch.tensor(0.0).to(self.device)
-            if self.loss_coefs["integ"] == 0
-            else self.calc_integ_loss(z_joint, integrate_on).to(self.device)
-        )
+
+        if self.loss_coefs["integ"] == 0:
+            integ_loss = torch.tensor(0.0).to(self.device)
+        else:
+            integ_loss = torch.tensor(0.0).to(self.device)
+            if self.mmd == "latent" or self.mmd == "both":
+                integ_loss += self.calc_integ_loss(z_joint, integrate_on).to(
+                    self.device
+                )
+            if self.mmd == "marginal" or self.mmd == "both":
+                for i in range(len(masks)):
+                    for j in range(i + 1, len(masks)):
+                        idx_where_to_calc_mmd = torch.eq(
+                            masks[i] == masks[j],
+                            torch.eq(masks[i], torch.ones_like(masks[i])),
+                        )
+                        if (
+                            idx_where_to_calc_mmd.any()
+                        ):  # if need to calc mmd for a group between modalities
+                            marginal_i = z_marginal[:, i, :][idx_where_to_calc_mmd]
+                            marginal_j = z_marginal[:, j, :][idx_where_to_calc_mmd]
+                            marginals = torch.cat([marginal_i, marginal_j])
+                            modalities = torch.cat(
+                                [
+                                    torch.Tensor([i] * marginal_i.shape[0]),
+                                    torch.Tensor([j] * marginal_j.shape[0]),
+                                ]
+                            ).to(self.device)
+
+                            integ_loss += self.calc_integ_loss(
+                                marginals, modalities
+                            ).to(self.device)
+
+                for i in range(len(masks)):
+                    marginal_i = z_marginal[:, i, :]
+                    marginal_i = marginal_i[masks[i]]
+                    group_marginal = integrate_on[masks[i]]
+                    integ_loss += self.calc_integ_loss(marginal_i, group_marginal).to(
+                        self.device
+                    )
+
         cycle_loss = (
             torch.tensor(0.0).to(self.device)
             if self.loss_coefs["cycle"] == 0
@@ -434,14 +482,18 @@ class MultiVAETorch(BaseModuleClass):
             + self.loss_coefs["cycle"] * cycle_loss
         )
         reconst_losses = dict(recon_loss=recon_loss)
+        modality_recon_losses = {
+            i: modality_recon_losses[i] for i in range(len(modality_recon_losses))
+        }
 
         return LossRecorder(
             loss,
             reconst_losses,
-            self.loss_coefs["kl"] * kl_loss,
+            kl_loss,
             kl_global=torch.tensor(0.0),
             integ_loss=integ_loss,
             cycle_loss=cycle_loss,
+            modality_recon_losses=modality_recon_losses,
         )
 
     # TODO ??
@@ -461,7 +513,7 @@ class MultiVAETorch(BaseModuleClass):
             if len(r) != 2 and len(r.shape) == 3:
                 r = r.squeeze()
             if loss_type == "mse":
-                mse_loss = loss_coefs["mse"] * torch.sum(
+                mse_loss = loss_coefs[str(i)] * torch.sum(
                     nn.MSELoss(reduction="none")(r, x), dim=-1
                 )
                 loss.append(mse_loss)
@@ -476,7 +528,7 @@ class MultiVAETorch(BaseModuleClass):
                 nb_loss = torch.sum(
                     NegativeBinomial(mu=dec_mean, theta=dispersion).log_prob(x), dim=-1
                 )
-                nb_loss = loss_coefs["nb"] * nb_loss
+                nb_loss = loss_coefs[str(i)] * nb_loss
                 loss.append(-nb_loss)
             elif loss_type == "zinb":
                 dec_mean, dec_dropout = r
@@ -494,26 +546,27 @@ class MultiVAETorch(BaseModuleClass):
                     ).log_prob(x),
                     dim=-1,
                 )
-                zinb_loss = loss_coefs["zinb"] * zinb_loss
+                zinb_loss = loss_coefs[str(i)] * zinb_loss
                 loss.append(-zinb_loss)
             elif loss_type == "bce":
-                bce_loss = loss_coefs["bce"] * torch.sum(
+                bce_loss = loss_coefs[str(i)] * torch.sum(
                     torch.nn.BCELoss(reduction="none")(r, x), dim=-1
                 )
                 loss.append(bce_loss)
 
-        return torch.sum(torch.stack(loss, dim=-1) * torch.stack(masks, dim=-1), dim=1)
+        return (
+            torch.sum(torch.stack(loss, dim=-1) * torch.stack(masks, dim=-1), dim=1),
+            torch.sum(torch.stack(loss, dim=-1) * torch.stack(masks, dim=-1), dim=0),
+        )
 
     def calc_integ_loss(self, z, group):
         loss = torch.tensor(0.0).to(self.device)
-        zs = []
-        for g in set(list(group.squeeze().cpu().numpy())):
-            idx = (group == g).nonzero(as_tuple=True)[0]
-            zs.append(z[idx])
-
-        for i in range(len(zs)):
-            for j in range(i + 1, len(zs)):
-                loss += MMD(kernel_type=self.kernel_type)(zs[i], zs[j])
+        unique = torch.unique(group)
+        if len(unique) > 1:
+            zs = [z[group == i] for i in unique]
+            for i in range(len(zs)):
+                for j in range(i + 1, len(zs)):
+                    loss += MMD(kernel_type=self.kernel_type)(zs[i], zs[j])
         return loss
 
     def calc_cycle_loss(

@@ -26,10 +26,10 @@ Multigrate installation
 
 Install multigrate in one of the following ways:
 
-Through **pip**::
-
-    pip install multigrate
-
 Nightly version - clone this repo and run::
 
     pip install .
+
+Through **pip** (not the most recent version)::
+
+    pip install multigrate

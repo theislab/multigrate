@@ -19,6 +19,7 @@ from scvi.train import TrainRunner
 from scvi.model._utils import parse_use_gpu_arg
 from scvi.model.base._utils import _initialize_model
 from matplotlib import pyplot as plt
+from math import ceil
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,7 @@ class MultiVAE(BaseModelClass):
         n_hidden_shared_decoder: int = 32,
         add_shared_decoder=False,
         ignore_categories=[],
+        mmd: str = "latent",
     ):
 
         super().__init__(adata)
@@ -157,6 +159,7 @@ class MultiVAE(BaseModelClass):
             n_layers_cont_embed=n_layers_cont_embed,
             n_hidden_cont_embed=n_hidden_cont_embed,
             add_shared_decoder=add_shared_decoder,
+            mmd=mmd,
         )
 
         self.init_params_ = self._get_init_params(locals())
@@ -330,7 +333,6 @@ class MultiVAE(BaseModelClass):
             categorical_covariate_keys=categorical_covariate_keys,
         )
 
-    # TODO add new losses
     def plot_losses(self, save=None):
         df = pd.DataFrame(self.history["train_loss_epoch"])
         for key in self.history.keys():
@@ -339,13 +341,16 @@ class MultiVAE(BaseModelClass):
 
         df["epoch"] = df.index
 
-        plt.figure(figsize=(15, 10))
-
         loss_names = ["kl_local", "elbo", "reconstruction_loss"]
+        for i in range(self.module.n_modality):
+            loss_names.append(f"modality_{i}_recon_loss")
+
         if self.module.loss_coefs["integ"] != 0:
             loss_names.append("integ")
 
-        nrows = 2
+        nrows = ceil(len(loss_names) / 2)
+
+        plt.figure(figsize=(15, 5 * nrows))
 
         for i, name in enumerate(loss_names):
             plt.subplot(nrows, 2, i + 1)
