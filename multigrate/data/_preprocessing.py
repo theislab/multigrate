@@ -25,22 +25,21 @@ def organize_multiome_anndatas(adatas, groups, layers=None, modality_lengths=Non
                 modality_var_names[mod] = adata.var_names
 
     # TODO: add check that obs_names are same for the same groups
-
     for mod, (modality_adatas, modality_groups) in enumerate(zip(adatas, groups)):
         for i, (adata, group) in enumerate(zip(modality_adatas, modality_groups)):
             if not isinstance(adata, ad.AnnData) and adata == None:
-                adatas[mod][i] = ad.AnnData(
-                    np.zeros((datasets_lengths[i], modality_lengths[mod]))
-                )
+                X_zeros = np.zeros((datasets_lengths[i], modality_lengths[mod]))
+                adatas[mod][i] = ad.AnnData(X_zeros, dtype=X_zeros.dtype)
                 adatas[mod][i].obs_names = datasets_obs_names[i]
                 adatas[mod][i].obs = datasets_obs[i]
                 groups[mod][i] = datasets_groups[i]
                 adatas[mod][i].var_names = modality_var_names[mod]
+                adatas[mod][i] = adatas[mod][i].copy()
             if layers:
                 if layers[mod][i]:
                     layer = layers[mod][i]
                     adatas[mod][i].X = adatas[mod][i].layers[layer].A.copy()
-            adatas[mod][i].obs["group"] = datasets_groups[i]
+            adatas[mod][i].obs.loc[:, "group"] = datasets_groups[i]
 
     # concat adatas per modality
     mod_adatas = []
