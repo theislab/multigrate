@@ -26,7 +26,8 @@ dependencies = [
     "numba==0.55.1",
     "tables==3.7.0",
     "scvi-tools==0.14.6",
-    "torchmetrics==0.6.0"
+    "torchmetrics==0.6.0",
+    "matplotlib"
 ]
 
 [project.optional-dependencies]
@@ -37,8 +38,6 @@ dev = [
 ]
 doc = [
     "notebook==6.4.10",
-    "igraph==0.9.11",
-    "leidenalg==0.8.9",
     "louvain==0.7.1",
     "scanpy==1.9.0",
     "sphinx>=4",
