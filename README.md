@@ -4,7 +4,7 @@
 [![Documentation][badge-docs]][link-docs]
 
 [badge-tests]: https://img.shields.io/github/workflow/status/alitinet/multigrate/Test/add-docs
-[link-tests]: https://github.com/theislab/multigrate/actions/workflows/test.yml
+[link-tests]: https://github.com/theislab/multigrate/actions/workflows/test.yml?branch=add-docs
 [badge-docs]: https://img.shields.io/readthedocs/multigrate
 
 ## Getting started
