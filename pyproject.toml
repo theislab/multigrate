@@ -8,7 +8,7 @@ name = "multigrate"
 version = "0.0.1"
 description = "A very interesting piece of code"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9,<3.11"
 license = {file = "LICENSE"}
 authors = [
     {name = "Anastasia Litinetskaya"},
@@ -20,7 +20,6 @@ urls.Documentation = "https://multigrate.readthedocs.io/"
 urls.Source = "https://github.com/theislab/multigrate"
 urls.Home-page = "https://github.com/theislab/multigrate"
 dependencies = [
-    "python>=3.9,<3.11",
     "scikit-learn==1.0.2",
     "statsmodels==0.13.2",
     "numba==0.55.1",
