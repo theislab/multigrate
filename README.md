@@ -3,11 +3,9 @@
 [![Tests][badge-tests]][link-tests]
 [![Documentation][badge-docs]][link-docs]
 
-[badge-tests]: https://img.shields.io/github/workflow/status/alitinet/multigrate/Test/main
+[badge-tests]: https://img.shields.io/github/workflow/status/alitinet/multigrate/Test/add-docs
 [link-tests]: https://github.com/theislab/multigrate/actions/workflows/test.yml
 [badge-docs]: https://img.shields.io/readthedocs/multigrate
-
-A very interesting piece of code
 
 ## Getting started
 
