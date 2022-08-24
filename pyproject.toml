@@ -21,16 +21,16 @@ urls.Source = "https://github.com/theislab/multigrate"
 urls.Home-page = "https://github.com/theislab/multigrate"
 dependencies = [
     "python >=3.9,<3.11",
-    "scikit-learn = ^1.0.2",
-    "statsmodels = ^0.13.2",
-    "numba = ^0.55.1",
-    "tables = ^3.7.0",
-    "notebook = ^6.4.10",
-    "leidenalg = ^0.8.9",
-    "louvain = ^0.7.1",
-    "scanpy = ^1.9.0",
-    "scvi-tools = ^0.14.6",
-    "torchmetrics = ^0.6.0"
+    "scikit-learn = 1.0.2",
+    "statsmodels = 0.13.2",
+    "numba = 0.55.1",
+    "tables = 3.7.0",
+    "notebook = 6.4.10",
+    "leidenalg = 0.8.9",
+    "louvain = 0.7.1",
+    "scanpy = 1.9.0",
+    "scvi-tools = 0.14.6",
+    "torchmetrics = 0.6.0"
 ]
 
 [project.optional-dependencies]
