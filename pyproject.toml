@@ -20,14 +20,11 @@ urls.Documentation = "https://multigrate.readthedocs.io/"
 urls.Source = "https://github.com/theislab/multigrate"
 urls.Home-page = "https://github.com/theislab/multigrate"
 dependencies = [
+    "anndata==0.8.0",
     "scikit-learn==1.0.2",
     "statsmodels==0.13.2",
     "numba==0.55.1",
     "tables==3.7.0",
-    "notebook==6.4.10",
-    "leidenalg==0.8.9",
-    "louvain==0.7.1",
-    "scanpy==1.9.0",
     "scvi-tools==0.14.6",
     "torchmetrics==0.6.0"
 ]
@@ -39,6 +36,11 @@ dev = [
     "pre-commit"
 ]
 doc = [
+    "notebook==6.4.10",
+    "igraph==0.9.11",
+    "leidenalg==0.8.9",
+    "louvain==0.7.1",
+    "scanpy==1.9.0",
     "sphinx>=4",
     "furo",
     "myst-parser",

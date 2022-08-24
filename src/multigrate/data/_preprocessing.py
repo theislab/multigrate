@@ -6,7 +6,7 @@ import pandas as pd
 
 
 def organize_multiome_anndatas(
-    adatas: List[List[ad.Anndata]],
+    adatas: List[List[ad.AnnData]],
     groups: List[List[Any]],
     layers: Optional[List[List[Union[str, None]]]] = None,
     modality_lengths: Optional[List[int]] = None,
