@@ -37,8 +37,10 @@ dev = [
     "pre-commit"
 ]
 doc = [
-    "notebook==6.4.10",
-    "louvain==0.7.1",
+    "notebook",
+    "louvain",
+    "python-igraph",
+    "leidenalg",
     "scanpy==1.9.0",
     "sphinx>=4",
     "furo",
