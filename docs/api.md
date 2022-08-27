@@ -14,3 +14,18 @@
 
    model.MultiVAE
 ```
+
+## Module
+
+```{eval-rst}
+.. currentmodule:: multigrate
+
+```
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+   :nosignatures:
+
+   module.MultiVAETorch
+```

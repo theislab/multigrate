@@ -27,11 +27,11 @@ class MultiVAE(BaseModelClass):
     """Multigrate model.
 
     :param adata:
-        AnnData object that has been registered via `~multigrate.model.MultiVAE.setup_anndata`. # TODO add meth text role
+        AnnData object that has been registered via :meth:`~multigrate.model.MultiVAE.setup_anndata`.
     :param modality_lengths:
         Number of features for each modality. Has to be the same length as the number of modalities.
     :param integrate_on:
-        One of the categorical covariates refistered with `~multigrate.model.MultiVAE.setup_anndata` to integrate on. The latent space then will be disentangled from this covariate. If `None`, no integration is performed.
+        One of the categorical covariates refistered with :math:`~multigrate.model.MultiVAE.setup_anndata` to integrate on. The latent space then will be disentangled from this covariate. If `None`, no integration is performed.
     :param condition_encoders:
         Whether to concatentate covariate embeddings to the first layer of the encoders. Default is `False`.
     :param condition_decoders:
@@ -250,7 +250,7 @@ class MultiVAE(BaseModelClass):
             Only activated when `n_epochs_kl_warmup` is set to None. If `None`, defaults
             to `floor(0.75 * adata.n_obs)`
         :param plan_kwargs:
-            Keyword args for `~scvi.train.TrainingPlan`. Keyword arguments passed to
+            Keyword args for :class:`~scvi.train.TrainingPlan`. Keyword arguments passed to
             `train()` will overwrite values present in `plan_kwargs`, when appropriate
         """
         n_epochs_kl_warmup = max(max_epochs // 3, 1)
@@ -302,7 +302,7 @@ class MultiVAE(BaseModelClass):
         categorical_covariate_keys: Optional[List[str]] = None,
         continuous_covariate_keys: Optional[List[str]] = None,
     ):
-        """Set up `~anndata.AnnData` object.
+        """Set up :class:`~anndata.AnnData` object.
 
         A mapping will be created between data fields used by ``scvi`` to their respective locations in adata.
         This method will also compute the log mean and log variance per batch for the library size prior.
