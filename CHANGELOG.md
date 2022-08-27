@@ -13,3 +13,5 @@ and this project adheres to [Semantic Versioning][].
 ### Added
 
 -   Initial release
+-   Added tutorial for paired and trimodal mosaic integration
+-   Updated documentation
