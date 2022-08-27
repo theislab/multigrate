@@ -40,15 +40,13 @@ See the [changelog][changelog].
 
 ## Contact
 
-For questions and help requests, you can reach out in the [scverse discourse][scverse-discourse].
 If you found a bug, please use the [issue tracker][issue-tracker].
 
 ## Citation
 
 > t.b.a
 
-[scverse-discourse]: https://discourse.scverse.org/
 [issue-tracker]: https://github.com/alitinet/multigrate/issues
-[changelog]: https://multigrate.readthedocs.io/latest/changelog.html
+[changelog]: https://multigrate.readthedocs.io/en/latest/changelog.html
 [link-docs]: https://multigrate.readthedocs.io
-[link-api]: https://multigrate.readthedocs.io/latest/api.html
+[link-api]: https://multigrate.readthedocs.io/en/latest/api.html
