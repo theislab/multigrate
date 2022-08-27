@@ -5,13 +5,21 @@
 ```{eval-rst}
 .. module:: multigrate.model
 .. currentmodule:: multigrate
-```
 
-## Package
-
-```{eval-rst}
 .. autosummary::
    :toctree: generated
 
-   multigrate
+   model.MultiVAE
+```
+
+## Module
+
+```{eval-rst}
+.. module:: multigrate.module
+.. currentmodule:: multigrate
+
+.. autosummary::
+   :toctree: generated
+
+   module.MultiVAETorch
 ```
