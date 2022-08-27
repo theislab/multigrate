@@ -10,6 +10,7 @@
 ```{eval-rst}
 .. autosummary::
    :toctree: generated
+   :nosignatures:
 
    model.MultiVAE
 ```
