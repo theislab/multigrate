@@ -3,7 +3,7 @@
 ## Model
 
 ```{eval-rst}
-.. currentmodule:: multigrate.model
+.. currentmodule:: multigrate
 
 ```
 
@@ -18,7 +18,7 @@
 ## Module
 
 ```{eval-rst}
-.. currentmodule:: multigrate.module
+.. currentmodule:: multigrate
 
 ```
 

@@ -10,5 +10,5 @@ api
 changelog
 references
 
-notebooks/integration
+notebooks/
 ```
