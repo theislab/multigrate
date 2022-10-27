@@ -67,6 +67,8 @@ class MMD(torch.nn.Module):
             return torch.tensor(0.0)
 
         if self.kernel_type == "gaussian":
+            #if x.shape != y.shape:
+            #   raise ValueError(f'Shapes of tensors have to be the same for Gaussian kernel in MMD, but got {x.shape} and {y.shape}.')
             Kxx = self.gaussian_kernel(x, x).mean()
             Kyy = self.gaussian_kernel(y, y).mean()
             Kxy = self.gaussian_kernel(x, y).mean()

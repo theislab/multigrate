@@ -67,6 +67,7 @@ def organize_multiome_anndatas(adatas, groups, layers=None, modality_lengths=Non
         batches[0] = batches[0].fillna(batches[i])
 
     multiome_anndata.obs = mod_adatas[0].obs
-    multiome_anndata.obs["group"] = batches[0].astype("category")
+    multiome_anndata.obs["group"] = batches[0]
+    multiome_anndata.obs["group"] = multiome_anndata.obs["group"].astype("category")
 
     return multiome_anndata

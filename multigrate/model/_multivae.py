@@ -12,7 +12,9 @@ from ..train import MultiVAETrainingPlan
 from ..distributions import *
 from scvi.data._anndata import _setup_anndata
 from scvi.dataloaders import DataSplitter
+from ..dataloaders import GroupDataSplitter, GroupAnnDataLoader
 from typing import List, Optional, Union
+from scvi.data import transfer_anndata_setup
 from scvi.model.base import BaseModelClass
 from scvi.train._callbacks import SaveBestState
 from scvi.train import TrainRunner
@@ -25,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class MultiVAE(BaseModelClass):
-    """CPA model
+    """MultiVAE model
     Parameters
     ----------
     adata
@@ -113,6 +115,7 @@ class MultiVAE(BaseModelClass):
                 ].index(integrate_on)
 
         self.adata = adata
+        self.group_column = integrate_on
 
         cont_covariate_dims = []
         if adata.uns["_scvi"].get("extra_continuous_keys") is not None:
@@ -185,7 +188,7 @@ class MultiVAE(BaseModelClass):
             return torch.cat(imputed).squeeze().numpy()
 
     # TODO fix to work with  @torch.no_grad()
-    def get_latent_representation(self, adata=None, batch_size=64):
+    def get_latent_representation(self, adata=None, batch_size=256):
         with torch.no_grad():
             self.module.eval()
             if not self.is_trained_:
@@ -206,12 +209,12 @@ class MultiVAE(BaseModelClass):
 
     def train(
         self,
-        max_epochs: int = 500,
-        lr: float = 1e-4,
+        max_epochs: int = 200,
+        lr: float = 1e-3,
         use_gpu: Optional[Union[str, int, bool]] = None,
         train_size: float = 0.9,
         validation_size: Optional[float] = None,
-        batch_size: int = 128,
+        batch_size: int = 256,
         weight_decay: float = 1e-3,
         eps: float = 1e-08,
         early_stopping: bool = True,
@@ -287,13 +290,23 @@ class MultiVAE(BaseModelClass):
                 SaveBestState(monitor="reconstruction_loss_validation")
             )
 
-        data_splitter = DataSplitter(
-            self.adata,
-            train_size=train_size,
-            validation_size=validation_size,
-            batch_size=batch_size,
-            use_gpu=use_gpu,
-        )
+        if self.group_column is not None:
+            data_splitter = GroupDataSplitter(
+                self.adata,
+                group_column=self.group_column,
+                train_size=train_size,
+                validation_size=validation_size,
+                batch_size=batch_size,
+                use_gpu=use_gpu,
+            )
+        else:
+            data_splitter = DataSplitter(
+                self.adata,
+                train_size=train_size,
+                validation_size=validation_size,
+                batch_size=batch_size,
+                use_gpu=use_gpu,
+            )
         training_plan = MultiVAETrainingPlan(self.module, **plan_kwargs)
         runner = TrainRunner(
             self,
@@ -376,6 +389,9 @@ class MultiVAE(BaseModelClass):
         attr_dict = reference_model._get_user_attributes()
         attr_dict = {a[0]: a[1] for a in attr_dict if a[0][-1] == "_"}
         load_state_dict = deepcopy(reference_model.module.state_dict())
+        scvi_setup_dict = attr_dict.pop("scvi_setup_dict_")
+
+        transfer_anndata_setup(scvi_setup_dict, adata, extend_categories=True)
 
         model = _initialize_model(cls, adata, attr_dict)
 
@@ -392,6 +408,8 @@ class MultiVAE(BaseModelClass):
                 adata.uns["_scvi"]["extra_categoricals"]["n_cats_per_key"],
             )
         ]
+
+        model.to_device(device)
 
         new_state_dict = model.module.state_dict()
         for key, load_ten in load_state_dict.items():  # load_state_dict = old
@@ -411,8 +429,6 @@ class MultiVAE(BaseModelClass):
                 load_state_dict[key] = fixed_ten
 
         model.module.load_state_dict(load_state_dict)
-
-        model.to_device(device)
 
         # freeze everything but the condition_layer in condMLPs
         if freeze:
