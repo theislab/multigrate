@@ -523,7 +523,9 @@ class MultiVAETorch(BaseModuleClass):
         else:
             integ_loss = torch.tensor(0.0).to(self.device)
             if self.mmd == "latent" or self.mmd == "both":
-                integ_loss += self._calc_integ_loss(z_joint, integrate_on).to(self.device)
+                integ_loss += self.calc_integ_loss(z_joint, integrate_on).to(
+                    self.device
+                )
             if self.mmd == "marginal" or self.mmd == "both":
                 for i in range(len(masks)):
                     for j in range(i + 1, len(masks)):
@@ -531,7 +533,9 @@ class MultiVAETorch(BaseModuleClass):
                             masks[i] == masks[j],
                             torch.eq(masks[i], torch.ones_like(masks[i])),
                         )
-                        if idx_where_to_calc_mmd.any():  # if need to calc mmd for a group between modalities
+                        if (
+                            idx_where_to_calc_mmd.any()
+                        ):  # if need to calc mmd for a group between modalities
                             marginal_i = z_marginal[:, i, :][idx_where_to_calc_mmd]
                             marginal_j = z_marginal[:, j, :][idx_where_to_calc_mmd]
                             marginals = torch.cat([marginal_i, marginal_j])
@@ -542,13 +546,17 @@ class MultiVAETorch(BaseModuleClass):
                                 ]
                             ).to(self.device)
 
-                            integ_loss += self._calc_integ_loss(marginals, modalities).to(self.device)
+                            integ_loss += self.calc_integ_loss(
+                                marginals, modalities
+                            ).to(self.device)
 
                 for i in range(len(masks)):
                     marginal_i = z_marginal[:, i, :]
                     marginal_i = marginal_i[masks[i]]
                     group_marginal = integrate_on[masks[i]]
-                    integ_loss += self._calc_integ_loss(marginal_i, group_marginal).to(self.device)
+                    integ_loss += self.calc_integ_loss(marginal_i, group_marginal).to(
+                        self.device
+                    )
 
         cycle_loss = (
             torch.tensor(0.0).to(self.device)
