@@ -170,7 +170,7 @@ class MultiVAETorch(BaseModuleClass):
         self.loss_coefs = {
             "recon": 1,
             "kl": 1e-6,
-            "integ": 1e-2,
+            "integ": 0,
             "cycle": 0,
         }
         for i in range(self.n_modality):
