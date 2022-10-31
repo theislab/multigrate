@@ -4,70 +4,74 @@ import pandas as pd
 import numpy as np
 
 
-def organize_multiome_anndatas(adatas, groups, layers=None, modality_lengths=None):
-    # set .X to the desired lay
-    # TOOD: add checks for layers
+def organize_multiome_anndatas(adatas, layers=None):
+    # TOOD: add checks for layers that they actually exist
 
     # needed for scArches operation setup
     datasets_lengths = {}
-    datasets_groups = {}
     datasets_obs_names = {}
     datasets_obs = {}
+    modality_lengths = {}
     modality_var_names = {}
+    modality_var = {}
 
-    for mod, (modality_adatas, modality_groups) in enumerate(zip(adatas, groups)):
-        for i, (adata, group) in enumerate(zip(modality_adatas, modality_groups)):
+    # sanity checks and preparing data for concat
+    for mod, modality_adatas in enumerate(adatas):
+        for i, adata in enumerate(modality_adatas):
             if adata is not None:
-                datasets_lengths[i] = len(adata)
-                datasets_groups[i] = group
-                datasets_obs_names[i] = adata.obs_names
-                datasets_obs[i] = adata.obs
-                modality_var_names[mod] = adata.var_names
-
-    # TODO: add check that obs_names are same for the same groups
-    for mod, (modality_adatas, modality_groups) in enumerate(zip(adatas, groups)):
-        for i, (adata, group) in enumerate(zip(modality_adatas, modality_groups)):
-            if not isinstance(adata, ad.AnnData) and adata == None:
+                # check that all adatas in the same modality have the same number of features
+                if (mod_length := modality_lengths.get(mod, None)) is None:
+                    modality_lengths[mod] =  adata.shape[1]
+                else:
+                    if adata.shape[1] != mod_length:
+                        raise ValueError(f"Adatas have different number of features for modality {mod}, namely {mod_length} and {adata.shape[1]}.")
+                # check that there is the same number of observations for paired data
+                if (dataset_length := datasets_lengths.get(i, None)) is None:
+                    datasets_lengths[i] = adata.shape[0]
+                else:
+                    if adata.shape[0] != dataset_length:
+                        raise ValueError(f"Paired adatas have different number of observations for group {i}, namely {dataset_length} and {adata.shape[0]}.")
+                # check that .obs_names are the same for paired data
+                if (dataset_obs_names := datasets_obs_names.get(i, None)) is None:
+                    datasets_obs_names[i] = adata.obs_names
+                else:
+                    if np.sum(adata.obs_names != dataset_obs_names):
+                        raise ValueError(f"`.obs_names` are not the same for group {i}.")
+                # keep all the .obs
+                if datasets_obs. get(i, None) is None:
+                    datasets_obs[i] = adata.obs
+                    datasets_obs[i].loc[:, "group"] = i
+                else:
+                    cols_to_use = adata.obs.columns.difference(datasets_obs[i].columns)
+                    datasets_obs[i] = datasets_obs[i].join(adata.obs[cols_to_use])
+                modality_var_names[mod] = adata.var_names        
+    
+    for mod, modality_adatas in enumerate(adatas):
+        for i, adata in enumerate(modality_adatas):
+            if not isinstance(adata, ad.AnnData) and adata is None:
                 X_zeros = np.zeros((datasets_lengths[i], modality_lengths[mod]))
                 adatas[mod][i] = ad.AnnData(X_zeros, dtype=X_zeros.dtype)
                 adatas[mod][i].obs_names = datasets_obs_names[i]
-                adatas[mod][i].obs = datasets_obs[i]
-                groups[mod][i] = datasets_groups[i]
                 adatas[mod][i].var_names = modality_var_names[mod]
                 adatas[mod][i] = adatas[mod][i].copy()
-            if layers:
+            if layers is not None:
                 if layers[mod][i]:
                     layer = layers[mod][i]
+                    adatas[mod][i] = adatas[mod][i].copy()
                     adatas[mod][i].X = adatas[mod][i].layers[layer].A.copy()
-            adatas[mod][i].obs.loc[:, "group"] = datasets_groups[i]
 
-    # concat adatas per modality
+    # concat adatas within each modality first
     mod_adatas = []
-    # first in list
-    for modality_adatas in adatas:
-        mod_adatas.append(modality_adatas[0])
-    # the rest
     for mod, modality_adatas in enumerate(adatas):
-        for i in range(1, len(modality_adatas)):
-            mod_adatas[mod] = mod_adatas[mod].concatenate(
-                modality_adatas[i], batch_key="concat_batch", index_unique=None
-            )
+            mod_adatas.append(ad.concat(modality_adatas, join='outer'))
 
-    # concat modality adatas
-    multiome_anndata = mod_adatas[0]
-    batches = mod_adatas[0].obs["group"].astype("int")
+    # concat modality adatas along the feature axis
+    multiome_anndata = ad.concat(mod_adatas, axis=1, label='modality')
 
-    for i in range(1, len(mod_adatas)):
-        adata = mod_adatas[i]
-        multiome_anndata = ad.concat(
-            [multiome_anndata.T, adata.T], join="outer", fill_value=0
-        ).T  # hack to concat modality adatas along var axis
+    # add .obs back
+    multiome_anndata.obs = pd.concat(datasets_obs.values())
 
-        batches = pd.concat([batches, adata.obs["group"]], axis=1, ignore_index=True)
-        batches[0] = batches[0].fillna(batches[i])
-
-    multiome_anndata.obs = mod_adatas[0].obs
-    multiome_anndata.obs["group"] = batches[0]
-    multiome_anndata.obs["group"] = multiome_anndata.obs["group"].astype("category")
+    # we will need modality_length later for the model init
+    multiome_anndata.uns['modality_lengths'] = modality_lengths
 
     return multiome_anndata

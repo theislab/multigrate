@@ -32,8 +32,6 @@ class MultiVAE(BaseModelClass):
     ----------
     adata
         AnnData object that has been registered via :meth:`~multigrate.model.MultiVAE.setup_anndata`.
-    modality_lengths
-        Number of features for each modality. Has to be the same length as the number of modalities.
     integrate_on
         One of the categorical covariates refistered with :meth:`~multigrate.model.MultiVAE.setup_anndata` to integrate on. The latent space then will be disentangled from this covariate. If `None`, no integration is performed.
     condition_encoders
@@ -65,7 +63,6 @@ class MultiVAE(BaseModelClass):
     def __init__(
         self,
         adata: AnnData,
-        modality_lengths: List[int],
         integrate_on: Optional[str] = None,
         condition_encoders: bool = False,
         condition_decoders: bool = True,
@@ -116,6 +113,8 @@ class MultiVAE(BaseModelClass):
 
         self.adata = adata
         self.group_column = integrate_on
+
+        modality_lengths = list(adata.uns['modality_lengths'].values())
 
         cont_covariate_dims = []
         if adata.uns["_scvi"].get("extra_continuous_keys") is not None:
