@@ -11,7 +11,7 @@
 .. autosummary::
    :toctree: generated
    :nosignatures:
-   :align: right
+   :align: left
 
    model.MultiVAE
 ```
@@ -27,7 +27,7 @@
 .. autosummary::
    :toctree: generated
    :nosignatures:
-   :align: right
+   :align: left
 
    module.MultiVAETorch
 ```
