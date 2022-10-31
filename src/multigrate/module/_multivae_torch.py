@@ -523,7 +523,7 @@ class MultiVAETorch(BaseModuleClass):
         else:
             integ_loss = torch.tensor(0.0).to(self.device)
             if self.mmd == "latent" or self.mmd == "both":
-                integ_loss += self.calc_integ_loss(z_joint, integrate_on).to(
+                integ_loss += self._calc_integ_loss(z_joint, integrate_on).to(
                     self.device
                 )
             if self.mmd == "marginal" or self.mmd == "both":
@@ -546,7 +546,7 @@ class MultiVAETorch(BaseModuleClass):
                                 ]
                             ).to(self.device)
 
-                            integ_loss += self.calc_integ_loss(
+                            integ_loss += self._calc_integ_loss(
                                 marginals, modalities
                             ).to(self.device)
 
@@ -554,7 +554,7 @@ class MultiVAETorch(BaseModuleClass):
                     marginal_i = z_marginal[:, i, :]
                     marginal_i = marginal_i[masks[i]]
                     group_marginal = integrate_on[masks[i]]
-                    integ_loss += self.calc_integ_loss(marginal_i, group_marginal).to(
+                    integ_loss += self._calc_integ_loss(marginal_i, group_marginal).to(
                         self.device
                     )
 

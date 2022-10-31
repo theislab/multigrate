@@ -3,7 +3,7 @@ from copy import deepcopy
 from math import ceil
 from typing import Dict, List, Optional, Union
 
-import anndata
+import anndata as ad
 import pandas as pd
 import scipy
 import torch
@@ -64,7 +64,7 @@ class MultiVAE(BaseModelClass):
 
     def __init__(
         self,
-        adata: AnnData,
+        adata: ad.AnnData,
         integrate_on: Optional[str] = None,
         condition_encoders: bool = False,
         condition_decoders: bool = True,
@@ -323,7 +323,7 @@ class MultiVAE(BaseModelClass):
         return runner()
 
     def setup_anndata(
-        adata: anndata.AnnData,
+        adata: ad.AnnData,
         rna_indices_end: Optional[int] = None,
         categorical_covariate_keys: Optional[List[str]] = None,
         continuous_covariate_keys: Optional[List[str]] = None,
@@ -392,7 +392,7 @@ class MultiVAE(BaseModelClass):
     @classmethod
     def load_query_data(
         cls,
-        adata: anndata.AnnData,
+        adata: ad.AnnData,
         reference_model: BaseModelClass,
         use_gpu: Optional[Union[str, int, bool]] = None,
         freeze: bool = True,

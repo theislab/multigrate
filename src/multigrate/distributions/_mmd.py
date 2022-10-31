@@ -33,8 +33,7 @@ class MMD(torch.nn.Module):
             List of gamma parameters
         """
         if gamma is None:
-            gamma = (
-                [
+            gamma = [
                     1e-6,
                     1e-5,
                     1e-4,
@@ -54,8 +53,7 @@ class MMD(torch.nn.Module):
                     1e4,
                     1e5,
                     1e6,
-                ],
-            )
+                ]
 
         D = torch.cdist(x, y).pow(2)
         K = torch.zeros_like(D)
