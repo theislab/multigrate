@@ -9,20 +9,16 @@ import scipy
 import torch
 from matplotlib import pyplot as plt
 from scvi._compat import Literal
+from scvi.data import transfer_anndata_setup
 from scvi.data._anndata import _setup_anndata
 from scvi.dataloaders import DataSplitter
-from ..dataloaders import GroupDataSplitter, GroupAnnDataLoader
-from typing import List, Optional, Union
-from scvi.data import transfer_anndata_setup
-from scvi.model.base import BaseModelClass
-from scvi.train._callbacks import SaveBestState
-from scvi.train import TrainRunner
 from scvi.model._utils import parse_use_gpu_arg
 from scvi.model.base import BaseModelClass
 from scvi.model.base._utils import _initialize_model
 from scvi.train import TrainRunner
 from scvi.train._callbacks import SaveBestState
 
+from ..dataloaders import GroupDataSplitter
 from ..module import MultiVAETorch
 from ..train import MultiVAETrainingPlan
 
@@ -115,7 +111,7 @@ class MultiVAE(BaseModelClass):
         self.adata = adata
         self.group_column = integrate_on
 
-        modality_lengths = list(adata.uns['modality_lengths'].values())
+        modality_lengths = list(adata.uns["modality_lengths"].values())
 
         cont_covariate_dims = []
         if adata.uns["_scvi"].get("extra_continuous_keys") is not None:

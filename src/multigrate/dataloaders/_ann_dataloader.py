@@ -1,18 +1,32 @@
-# adjusted from scvi-tools
-# https://github.com/YosefLab/scvi-tools/blob/ac0c3e04fcc2772fdcf7de4de819db3af9465b6b/scvi/dataloaders/_ann_dataloader.py#L88
-# accessed on 4 November 2021
-import numpy as np
-import torch
-from torch.utils.data import DataLoader
-from scvi.dataloaders import AnnTorchDataset
-from typing import List, Optional, Union
-import anndata
 import copy
 import itertools
-import warnings
+from typing import Optional, Union
+
+import anndata
+import numpy as np
+import torch
+from scvi.dataloaders import AnnTorchDataset
+from torch.utils.data import DataLoader
 
 
+# adjusted from scvi-tools
+# https://github.com/YosefLab/scvi-tools/blob/ac0c3e04fcc2772fdcf7de4de819db3af9465b6b/scvi/dataloaders/_ann_dataloader.py#L15
+# accessed on 4 November 2021
 class StratifiedSampler(torch.utils.data.sampler.Sampler):
+    """Custom stratified sampler class which enables sampling the same number of observation from each group in each mini-batch.
+
+    :param indices:
+        list of indices to sample from
+    :param batch_size:
+        batch size of each iteration
+    :param shuffle:
+        if ``True``, shuffles indices before sampling
+    :param drop_last:
+        if int, drops the last batch if its length is less than drop_last.
+        if drop_last == True, drops last non-full batch.
+        if drop_last == False, iterate over all batches.
+    """
+
     def __init__(
         self,
         indices: np.ndarray,
@@ -26,15 +40,13 @@ class StratifiedSampler(torch.utils.data.sampler.Sampler):
         if drop_last > batch_size:
             raise ValueError(
                 "drop_last can't be greater than batch_size. "
-                + "drop_last is {} but batch_size is {}.".format(drop_last, batch_size)
+                + f"drop_last is {drop_last} but batch_size is {batch_size}."
             )
 
         if batch_size % min_size_per_class != 0:
             raise ValueError(
                 "min_size_per_class has to be a divisor of batch_size."
-                + "min_size_per_class is {} but batch_size is {}.".format(
-                    min_size_per_class, batch_size
-                )
+                + f"min_size_per_class is {min_size_per_class} but batch_size is {batch_size}."
             )
 
         self.indices = indices
@@ -61,9 +73,7 @@ class StratifiedSampler(torch.utils.data.sampler.Sampler):
             elif (self.drop_last is False) or (last_batch_len >= self.drop_last):
                 drop_last_n = 0
             else:
-                raise ValueError(
-                    "Invalid input for drop_last param. Must be bool or int."
-                )
+                raise ValueError("Invalid input for drop_last param. Must be bool or int.")
 
             if drop_last_n != 0:
                 tmp += n_obs // self.min_size_per_class
@@ -96,18 +106,13 @@ class StratifiedSampler(torch.utils.data.sampler.Sampler):
             elif (self.drop_last is False) or (last_batch_len >= self.drop_last):
                 drop_last_n = 0
             else:
-                raise ValueError(
-                    "Invalid input for drop_last param. Must be bool or int."
-                )
+                raise ValueError("Invalid input for drop_last param. Must be bool or int.")
 
             if drop_last_n != 0:
                 idx = idx[:-drop_last_n]
 
             data_iter.extend(
-                [
-                    cl_idx[idx[i : i + self.min_size_per_class]]
-                    for i in range(0, len(idx), self.min_size_per_class)
-                ]
+                [cl_idx[idx[i : i + self.min_size_per_class]] for i in range(0, len(idx), self.min_size_per_class)]
             )
 
         if self.shuffle_classes:
@@ -118,9 +123,7 @@ class StratifiedSampler(torch.utils.data.sampler.Sampler):
 
         end = len(data_iter) - len(data_iter) % classes_per_batch
         for i in range(0, end, classes_per_batch):
-            batch_idx = list(
-                itertools.chain.from_iterable(data_iter[i : i + classes_per_batch])
-            )
+            batch_idx = list(itertools.chain.from_iterable(data_iter[i : i + classes_per_batch]))
             final_data_iter.append(batch_idx)
 
         # deal with the last manually
@@ -134,24 +137,26 @@ class StratifiedSampler(torch.utils.data.sampler.Sampler):
         return self.length
 
 
+# adjusted from scvi-tools
+# https://github.com/YosefLab/scvi-tools/blob/ac0c3e04fcc2772fdcf7de4de819db3af9465b6b/scvi/dataloaders/_ann_dataloader.py#L88
+# accessed on 4 November 2021
 class GroupAnnDataLoader(DataLoader):
     """
     DataLoader for loading tensors from AnnData objects.
-    Parameters
-    ----------
-    adata
+
+    :param adata:
         An anndata objects
-    shuffle
+    :param shuffle:
         Whether the data should be shuffled
-    indices
+    :param indices:
         The indices of the observations in the adata to load
-    batch_size
+    :param batch_size:
         minibatch size to load each iteration
-    data_and_attributes
+    :param data_and_attributes:
         Dictionary with keys representing keys in data registry (`adata.uns["_scvi"]`)
         and value equal to desired numpy loading type (later made into torch tensor).
         If `None`, defaults to all registered data.
-    data_loader_kwargs
+    :param data_loader_kwargs:
         Keyword arguments for :class:`~torch.utils.data.DataLoader`
     """
 
@@ -177,11 +182,7 @@ class GroupAnnDataLoader(DataLoader):
             data_registry = adata.uns["_scvi"]["data_registry"]
             for key in data_and_attributes.keys():
                 if key not in data_registry.keys():
-                    raise ValueError(
-                        "{} required for model but not included when setup_anndata was run".format(
-                            key
-                        )
-                    )
+                    raise ValueError(f"{key} required for model but not included when setup_anndata was run")
 
         if group_column not in adata.uns["_scvi"]["extra_categoricals"]["keys"]:
             raise ValueError(
@@ -212,9 +213,7 @@ class GroupAnnDataLoader(DataLoader):
             indices = np.asarray(indices)
             sampler_kwargs["indices"] = indices
 
-        sampler_kwargs["group_labels"] = np.array(
-            adata[indices].obsm["_scvi_extra_categoricals"][group_column]
-        )
+        sampler_kwargs["group_labels"] = np.array(adata[indices].obsm["_scvi_extra_categoricals"][group_column])
 
         self.indices = indices
         self.sampler_kwargs = sampler_kwargs

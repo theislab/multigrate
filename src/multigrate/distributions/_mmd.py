@@ -34,26 +34,26 @@ class MMD(torch.nn.Module):
         """
         if gamma is None:
             gamma = [
-                    1e-6,
-                    1e-5,
-                    1e-4,
-                    1e-3,
-                    1e-2,
-                    1e-1,
-                    1,
-                    5,
-                    10,
-                    15,
-                    20,
-                    25,
-                    30,
-                    35,
-                    100,
-                    1e3,
-                    1e4,
-                    1e5,
-                    1e6,
-                ]
+                1e-6,
+                1e-5,
+                1e-4,
+                1e-3,
+                1e-2,
+                1e-1,
+                1,
+                5,
+                10,
+                15,
+                20,
+                25,
+                30,
+                35,
+                100,
+                1e3,
+                1e4,
+                1e5,
+                1e6,
+            ]
 
         D = torch.cdist(x, y).pow(2)
         K = torch.zeros_like(D)
