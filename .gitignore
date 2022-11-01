@@ -22,3 +22,9 @@ __pycache__/
 # IDEs
 /.idea/
 /.vscode/
+
+# data
+*.h5ad
+
+# jupyter checkpoints
+.ipynb_checkpoints

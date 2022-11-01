@@ -93,5 +93,6 @@ def organize_multiome_anndatas(
 
     # we will need modality_length later for the model init
     multiome_anndata.uns["modality_lengths"] = modality_lengths
+    multiome_anndata.var_names_make_unique()
 
     return multiome_anndata

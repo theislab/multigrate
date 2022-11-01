@@ -175,7 +175,8 @@ class MultiVAETorch(BaseModuleClass):
         }
         for i in range(self.n_modality):
             self.loss_coefs[str(i)] = 1
-        self.loss_coefs.update(loss_coefs)
+        if loss_coefs is not None:
+            self.loss_coefs.update(loss_coefs)
 
         # assume for now that can only use nb/zinb once, i.e. for RNA-seq modality
         # TODO: add check for multiple nb/zinb losses given

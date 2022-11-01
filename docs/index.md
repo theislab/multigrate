@@ -7,8 +7,8 @@
 :maxdepth: 2
 
 api
+tutorials
 changelog
 references
 
-notebooks/integration
 ```

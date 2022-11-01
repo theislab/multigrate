@@ -3,10 +3,6 @@
 [![Tests][badge-tests]][link-tests]
 [![Documentation][badge-docs]][link-docs]
 
-[badge-tests]: https://img.shields.io/github/workflow/status/theislab/multigrate/Test/add-docs
-[link-tests]: https://github.com/theislab/multigrate/actions/workflows/test.yaml
-[badge-docs]: https://img.shields.io/readthedocs/multigrate
-
 ICML 2021 CompBio Workshop paper is on [bioarxiv](https://www.biorxiv.org/content/10.1101/2022.03.16.484643v1).
 
 For examples, see the reproducibility [repo](https://github.com/theislab/multigrate_reproducibility).
@@ -49,9 +45,24 @@ See the [changelog][changelog].
 If you found a bug, please use the [issue tracker][issue-tracker].
 
 ## Citation
+If you use multigrate in your research, please consider citing
+```
+@article {Lotfollahi2022.03.16.484643,
+	author = {Lotfollahi, Mohammad and Litinetskaya, Anastasia and Theis, Fabian J.},
+	title = {Multigrate: single-cell multi-omic data integration},
+	elocation-id = {2022.03.16.484643},
+	year = {2022},
+	doi = {10.1101/2022.03.16.484643},
+	publisher = {Cold Spring Harbor Laboratory},
+	URL = {https://www.biorxiv.org/content/early/2022/03/17/2022.03.16.484643},
+	eprint = {https://www.biorxiv.org/content/early/2022/03/17/2022.03.16.484643.full.pdf},
+	journal = {bioRxiv}
+}
+```
 
-> t.b.a
-
+[badge-tests]: https://img.shields.io/github/workflow/status/theislab/multigrate/Test/add-docs
+[link-tests]: https://github.com/theislab/multigrate/actions/workflows/test.yaml
+[badge-docs]: https://img.shields.io/readthedocs/multigrate
 [issue-tracker]: https://github.com/theislab/multigrate/issues
 [changelog]: https://multigrate.readthedocs.io/en/latest/changelog.html
 [link-docs]: https://multigrate.readthedocs.io
