@@ -1,44 +1,98 @@
-[tool.poetry]
-name = "multigrate"
-version = "1.0.0"
-description = "multiomic data integration for single-cell genomics"
-authors = ["Anastasia Litinetskaya <anastasia.litinetskaya@helmholtz-muenchen.de>", "Mohammad Lotfollahi <mohammad.lotfollahi@helmholtz-muenchen.de>"]
-homepage = "https://github.com/theislab/multigrate/"
-license = "BSD-3-Clause"
-readme = "README.md"
-packages = [
-    { include = "multigrate" }
-]
-
-
-[tool.poetry.dependencies]
-python = ">=3.9,<3.11"
-scanpy = "^1.9.0"
-scvi-tools = "^0.14.6"
-torchmetrics = "^0.6.0"
-
-[tool.poetry.extras]
-docs = [
-    "jinja2<3.0.3",
-    "scanpy",
-    "sphinx",
-    "scanpydoc",
-    "nbsphinx",
-    "nbsphinx-link",
-    "ipython",
-    "pydata-sphinx-theme",
-    "typing_extensions",
-    "sphinx-autodoc-typehints",
-    "sphinx_gallery",
-    "sphinx-rtd-theme",
-]
-tutorials = ["scanpy", "leidenalg", "python-igraph"]
-
-[tool.poetry.dev-dependencies]
-
 [build-system]
-build-backend = "poetry.core.masonry.api"
-requires = [
-    "poetry>=1.0",
-    "setuptools", # keep it here or "pip install -e" would fail
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+
+[project]
+name = "multigrate"
+version = "0.0.1"
+description = "Multigrate: multimodal data integration for single-cell genomics."
+readme = "README.md"
+requires-python = ">=3.9,<3.11"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Anastasia Litinetskaya"},
 ]
+maintainers = [
+    {name = "Anastasia Litinetskaya", email = "alitinet@gmail.com"},
+]
+urls.Documentation = "https://multigrate.readthedocs.io/"
+urls.Source = "https://github.com/theislab/multigrate"
+urls.Home-page = "https://github.com/theislab/multigrate"
+dependencies = [
+    "scanpy==1.9.0",
+    "scvi-tools==0.14.6",
+    "torchmetrics==0.6.0",
+    "matplotlib"
+]
+
+[project.optional-dependencies]
+dev = [
+    # CLI for bumping the version number
+    "bump2version",
+    "pre-commit"
+]
+doc = [
+    "notebook",
+    "louvain",
+    "python-igraph",
+    "leidenalg",
+    "scanpy==1.9.0",
+    "sphinx>=4",
+    "furo",
+    "myst-parser",
+    "sphinxcontrib-bibtex>=1.0.0",
+    "scanpydoc[typehints]>=0.7.4",
+    # For notebooks
+    "nbsphinx",
+    "ipykernel",
+    # Preprocessing
+    "muon",
+]
+test = [
+    "pytest",
+    "pytest-cov",
+]
+
+[tool.coverage.run]
+source = ["multigrate"]
+omit = [
+    "**/test_*.py",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+xfail_strict = true
+addopts = [
+    "--import-mode=importlib",  # allow using test files with same name
+]
+
+[tool.isort]
+include_trailing_comma = true
+multi_line_output = 3
+profile = "black"
+skip_glob = ["docs/*"]
+
+[tool.black]
+line-length = 120
+target-version = ['py38']
+include = '\.pyi?$'
+exclude = '''
+(
+  /(
+      \.eggs
+    | \.git
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+  )/
+)
+'''
+
+[tool.jupytext]
+formats = "ipynb,md"

@@ -1,8 +1,30 @@
+# Temp files
 .DS_Store
-.ipynb_checkpoints
-__pycache__
+*~
+
+# Compiled files
+__pycache__/
+
+# Distribution / packaging
+/build/
+/dist/
+/*.egg-info/
+
+# Tests and coverage
+/.pytest_cache/
+/.cache/
+/data/
+
+# docs
+/docs/generated/
+/docs/_build/
+
+# IDEs
+/.idea/
+/.vscode/
+
+# data
 *.h5ad
-.vscode
-*.egg-info
-dist/
-*.lock
+
+# jupyter checkpoints
+.ipynb_checkpoints
