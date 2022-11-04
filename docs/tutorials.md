@@ -7,6 +7,7 @@
 
 notebooks/neurips2021_cite_pp
 notebooks/neurips2021_multiome_pp
+notebooks/trimodal_pp
 
 ```
 
@@ -17,5 +18,6 @@ notebooks/neurips2021_multiome_pp
 
 notebooks/paired_integration_cite
 notebooks/paired_integration_multiome
+notebooks/trimodal_integration
 
 ```
