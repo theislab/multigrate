@@ -43,7 +43,9 @@ See the [changelog][changelog].
 If you found a bug, please use the [issue tracker][issue-tracker].
 
 ## Citation
+
 If you use multigrate in your research, please consider citing
+
 ```
 @article {Lotfollahi2022.03.16.484643,
 	author = {Lotfollahi, Mohammad and Litinetskaya, Anastasia and Theis, Fabian J.},
