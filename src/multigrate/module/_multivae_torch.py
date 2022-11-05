@@ -1,10 +1,10 @@
 from typing import Dict, List, Optional, Tuple, Union
 
 import torch
-from scvi import _CONSTANTS
+from scvi import REGISTRY_KEYS
 from scvi._compat import Literal
 from scvi.distributions import NegativeBinomial, ZeroInflatedNegativeBinomial
-from scvi.module.base import BaseModuleClass, LossRecorder, auto_move_data
+from scvi.module.base import BaseModuleClass, LossOutput, auto_move_data
 from torch import nn
 from torch.distributions import Normal
 from torch.distributions import kl_divergence as kl
@@ -315,12 +315,12 @@ class MultiVAETorch(BaseModuleClass):
         return mus_joint, logvars_joint
 
     def _get_inference_input(self, tensors):
-        x = tensors[_CONSTANTS.X_KEY]
+        x = tensors[REGISTRY_KEYS.X_KEY]
 
-        cont_key = _CONSTANTS.CONT_COVS_KEY
+        cont_key = REGISTRY_KEYS.CONT_COVS_KEY
         cont_covs = tensors[cont_key] if cont_key in tensors.keys() else None
 
-        cat_key = _CONSTANTS.CAT_COVS_KEY
+        cat_key = REGISTRY_KEYS.CAT_COVS_KEY
         cat_covs = tensors[cat_key] if cat_key in tensors.keys() else None
 
         input_dict = {"x": x, "cat_covs": cat_covs, "cont_covs": cont_covs}
@@ -329,10 +329,10 @@ class MultiVAETorch(BaseModuleClass):
     def _get_generative_input(self, tensors, inference_outputs):
         z_joint = inference_outputs["z_joint"]
 
-        cont_key = _CONSTANTS.CONT_COVS_KEY
+        cont_key = REGISTRY_KEYS.CONT_COVS_KEY
         cont_covs = tensors[cont_key] if cont_key in tensors.keys() else None
 
-        cat_key = _CONSTANTS.CAT_COVS_KEY
+        cat_key = REGISTRY_KEYS.CAT_COVS_KEY
         cat_covs = tensors[cat_key] if cat_key in tensors.keys() else None
 
         return {"z_joint": z_joint, "cat_covs": cat_covs, "cont_covs": cont_covs}
@@ -494,15 +494,14 @@ class MultiVAETorch(BaseModuleClass):
         :returns:
             Reconstruction loss, Kullback divergences, integration loss, cycle consistency loss and modality reconstruction losses.
         """
-        x = tensors[_CONSTANTS.X_KEY]
+        x = tensors[REGISTRY_KEYS.X_KEY]
         if self.integrate_on_idx is not None:
-            integrate_on = tensors.get(_CONSTANTS.CAT_COVS_KEY)[:, self.integrate_on_idx]
+            integrate_on = tensors.get(REGISTRY_KEYS.CAT_COVS_KEY)[:, self.integrate_on_idx]
         else:
             integrate_on = torch.zeros(x.shape[0], 1).to(self.device)
 
-        size_factor = tensors.get(_CONSTANTS.CONT_COVS_KEY)
-        if size_factor is not None:
-            size_factor = size_factor[:, -1]  # always last
+        size_factor = tensors.get(REGISTRY_KEYS.SIZE_FACTOR_KEY, None)
+
         rs = generative_outputs["rs"]
         mu = inference_outputs["mu"]
         logvar = inference_outputs["logvar"]
@@ -571,17 +570,16 @@ class MultiVAETorch(BaseModuleClass):
             + self.loss_coefs["integ"] * integ_loss
             + self.loss_coefs["cycle"] * cycle_loss
         )
-        reconst_losses = {"recon_loss": recon_loss}
-        modality_recon_losses = {i: modality_recon_losses[i] for i in range(len(modality_recon_losses))}
 
-        return LossRecorder(
-            loss,
-            reconst_losses,
-            kl_loss,
-            kl_global=torch.tensor(0.0),
-            integ_loss=integ_loss,
-            cycle_loss=cycle_loss,
-            modality_recon_losses=modality_recon_losses,
+        modality_recon_losses = {f'modality_{i}_reconstruction_loss': modality_recon_losses[i] for i in range(len(modality_recon_losses))}
+        extra_metrics = {"integ_loss": integ_loss}
+        extra_metrics.update(modality_recon_losses)
+
+        return LossOutput(
+            loss=loss,
+            reconstruction_loss=recon_loss,
+            kl_local=kl_loss,
+            extra_metrics=extra_metrics,
         )
 
     # TODO ??
@@ -606,7 +604,7 @@ class MultiVAETorch(BaseModuleClass):
                 loss.append(mse_loss)
             elif loss_type == "nb":
                 dec_mean = r
-                size_factor_view = size_factor.unsqueeze(1).expand(dec_mean.size(0), dec_mean.size(1))
+                size_factor_view = size_factor.expand(dec_mean.size(0), dec_mean.size(1))
                 dec_mean = dec_mean * size_factor_view
                 dispersion = self.theta.T[group.squeeze().long()]
                 dispersion = torch.exp(dispersion)

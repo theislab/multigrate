@@ -9,18 +9,17 @@ import scipy
 import torch
 from matplotlib import pyplot as plt
 from scvi._compat import Literal
-from scvi.data import transfer_anndata_setup
-from scvi.data._anndata import _setup_anndata
+from scvi import REGISTRY_KEYS
+from scvi.data import AnnDataManager, fields
 from scvi.dataloaders import DataSplitter
 from scvi.model._utils import parse_use_gpu_arg
 from scvi.model.base import BaseModelClass
 from scvi.model.base._utils import _initialize_model
-from scvi.train import TrainRunner
+from scvi.train import TrainRunner, AdversarialTrainingPlan
 from scvi.train._callbacks import SaveBestState
 
 from ..dataloaders import GroupDataSplitter
 from ..module import MultiVAETorch
-from ..train import MultiVAETrainingPlan
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +88,9 @@ class MultiVAE(BaseModelClass):
 
         super().__init__(adata)
 
+        self.adata = adata
+        self.group_column = integrate_on
+
         # TODO: add options for number of hidden layers, hidden layers dim and output activation functions
         if normalization not in ["layer", "batch", None]:
             raise ValueError('Normalization has to be one of ["layer", "batch", None]')
@@ -97,36 +99,40 @@ class MultiVAE(BaseModelClass):
         if ignore_categories is None:
             ignore_categories = []
 
+        if ("nb" in losses or "zinb" in losses) and REGISTRY_KEYS.SIZE_FACTOR_KEY not in self.adata_manager.data_registry:
+            raise ValueError(f"Have to register {REGISTRY_KEYS.SIZE_FACTOR_KEY} when using 'nb' or 'zinb' loss.")
+
         num_groups = 1
         integrate_on_idx = None
-        if integrate_on:
-            if integrate_on not in adata.uns["_scvi"]["extra_categoricals"]["keys"]:
+        if integrate_on is not None:
+            if integrate_on not in self.adata_manager.registry["setup_args"]["categorical_covariate_keys"]:
                 raise ValueError(
-                    f'Cannot integrate on {integrate_on}, has to be one of extra categoricals = {adata.uns["_scvi"]["extra_categoricals"]["keys"]}'
+                    f"Cannot integrate on '{integrate_on}', has to be one of the registered categorical covariates = {self.adata_manager.registry['setup_args']['categorical_covariate_keys']}"
+                )
+            elif integrate_on in ignore_categories:
+                raise ValueError(
+                    f"Specified integrate_on = '{integrate_on}' is in ignore_categories = {ignore_categories}."
                 )
             else:
-                num_groups = len(adata.uns["_scvi"]["extra_categoricals"]["mappings"][integrate_on])
-                integrate_on_idx = adata.uns["_scvi"]["extra_categoricals"]["keys"].index(integrate_on)
-
-        self.adata = adata
-        self.group_column = integrate_on
+                num_groups = len(self.adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY)['mappings'][integrate_on])
+                integrate_on_idx = self.adata_manager.registry["setup_args"]["categorical_covariate_keys"].index(integrate_on)
 
         modality_lengths = list(adata.uns["modality_lengths"].values())
 
         cont_covariate_dims = []
-        if adata.uns["_scvi"].get("extra_continuous_keys") is not None:
+        if len(cont_covs := self.adata_manager.get_state_registry(REGISTRY_KEYS.CONT_COVS_KEY)) > 0:
             cont_covariate_dims = [
                 1
-                for key in adata.uns["_scvi"]["extra_continuous_keys"]
-                if key != "size_factors" and key not in ignore_categories
+                for key in cont_covs['columns']
+                if key not in ignore_categories
             ]
 
         cat_covariate_dims = []
-        if adata.uns["_scvi"].get("extra_categoricals") is not None:
+        if len(cat_covs := self.adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY)) > 0:
             cat_covariate_dims = [
                 num_cat
-                for i, num_cat in enumerate(adata.uns["_scvi"]["extra_categoricals"]["n_cats_per_key"])
-                if adata.uns["_scvi"]["extra_categoricals"]["keys"][i] not in ignore_categories
+                for i, num_cat in enumerate(cat_covs.n_cats_per_key)
+                if cat_covs['field_keys'][i] not in ignore_categories
             ]
 
         self.module = MultiVAETorch(
@@ -181,31 +187,29 @@ class MultiVAE(BaseModelClass):
 
             return torch.cat(imputed).squeeze().numpy()
 
-    # TODO fix to work with  @torch.no_grad()
+    @torch.inference_mode()
     def get_latent_representation(self, adata=None, batch_size=256):
         """Return the latent representation."""
-        with torch.no_grad():
-            self.module.eval()
-            if not self.is_trained_:
-                raise RuntimeError("Please train the model first.")
+        if not self.is_trained_:
+            raise RuntimeError("Please train the model first.")
 
-            adata = self._validate_anndata(adata)
+        adata = self._validate_anndata(adata)
 
-            scdl = self._make_data_loader(adata=adata, batch_size=batch_size)
+        scdl = self._make_data_loader(adata=adata, batch_size=batch_size)
 
-            latent = []
-            for tensors in scdl:
-                inference_inputs = self.module._get_inference_input(tensors)
-                outputs = self.module.inference(**inference_inputs)
-                z = outputs["z_joint"]
-                latent += [z.cpu()]
+        latent = []
+        for tensors in scdl:
+            inference_inputs = self.module._get_inference_input(tensors)
+            outputs = self.module.inference(**inference_inputs)
+            z = outputs["z_joint"]
+            latent += [z.cpu()]
 
         adata.obsm["latent"] = torch.cat(latent).numpy()
 
     def train(
         self,
         max_epochs: int = 200,
-        lr: float = 1e-3,
+        lr: float = 1e-4,
         use_gpu: Optional[Union[str, int, bool]] = None,
         train_size: float = 0.9,
         validation_size: Optional[float] = None,
@@ -215,7 +219,9 @@ class MultiVAE(BaseModelClass):
         early_stopping: bool = True,
         save_best: bool = True,
         check_val_every_n_epoch: Optional[int] = None,
+        n_epochs_kl_warmup: Optional[int] = None,
         n_steps_kl_warmup: Optional[int] = None,
+        adversarial_mixing: bool = False,
         plan_kwargs: Optional[dict] = None,
         **kwargs,
     ):
@@ -247,6 +253,9 @@ class MultiVAE(BaseModelClass):
         :param check_val_every_n_epoch:
             Check val every n train epochs. By default, val is not checked, unless `early_stopping` is `True`.
             If so, val is checked every epoch
+        :param n_epochs_kl_warmup:
+            Number of epochs to scale weight on KL divergences from 0 to 1.
+            Overrides `n_steps_kl_warmup` when both are not `None`. Default is 1/3 of `max_epochs`.
         :param n_steps_kl_warmup:
             Number of training steps (minibatches) to scale weight on KL divergences from 0 to 1.
             Only activated when `n_epochs_kl_warmup` is set to None. If `None`, defaults
@@ -255,17 +264,15 @@ class MultiVAE(BaseModelClass):
             Keyword args for :class:`~scvi.train.TrainingPlan`. Keyword arguments passed to
             `train()` will overwrite values present in `plan_kwargs`, when appropriate
         """
-        n_epochs_kl_warmup = max(max_epochs // 3, 1)
+        if n_epochs_kl_warmup is None:
+            n_epochs_kl_warmup = max(max_epochs // 3, 1)
         update_dict = {
             "lr": lr,
+            "adversarial_classifier": adversarial_mixing,
             "weight_decay": weight_decay,
             "eps": eps,
             "n_epochs_kl_warmup": n_epochs_kl_warmup,
             "n_steps_kl_warmup": n_steps_kl_warmup,
-            "check_val_every_n_epoch": check_val_every_n_epoch,
-            "early_stopping": early_stopping,
-            "early_stopping_monitor": "reconstruction_loss_validation",
-            "early_stopping_patience": 50,
             "optimizer": "AdamW",
             "scale_adversarial_loss": 1,
         }
@@ -281,7 +288,7 @@ class MultiVAE(BaseModelClass):
 
         if self.group_column is not None:
             data_splitter = GroupDataSplitter(
-                self.adata,
+                self.adata_manager,
                 group_column=self.group_column,
                 train_size=train_size,
                 validation_size=validation_size,
@@ -291,7 +298,7 @@ class MultiVAE(BaseModelClass):
 
         if self.group_column is not None:
             data_splitter = GroupDataSplitter(
-                self.adata,
+                self.adata_manager,
                 group_column=self.group_column,
                 train_size=train_size,
                 validation_size=validation_size,
@@ -300,13 +307,13 @@ class MultiVAE(BaseModelClass):
             )
         else:
             data_splitter = DataSplitter(
-                self.adata,
+                self.adata_manager,
                 train_size=train_size,
                 validation_size=validation_size,
                 batch_size=batch_size,
                 use_gpu=use_gpu,
             )
-        training_plan = MultiVAETrainingPlan(self.module, **plan_kwargs)
+        training_plan = AdversarialTrainingPlan(self.module, **plan_kwargs)
         runner = TrainRunner(
             self,
             training_plan=training_plan,
@@ -314,15 +321,23 @@ class MultiVAE(BaseModelClass):
             max_epochs=max_epochs,
             use_gpu=use_gpu,
             early_stopping=early_stopping,
+            check_val_every_n_epoch=check_val_every_n_epoch,
+            early_stopping_monitor="reconstruction_loss_validation",
+            early_stopping_patience=50,
             **kwargs,
         )
         return runner()
 
+    @classmethod
     def setup_anndata(
+        cls,
         adata: ad.AnnData,
+        batch_key: Optional[str] = None,
+        size_factor_key: Optional[str] = None,
         rna_indices_end: Optional[int] = None,
         categorical_covariate_keys: Optional[List[str]] = None,
         continuous_covariate_keys: Optional[List[str]] = None,
+        **kwargs,
     ):
         """Set up :class:`~anndata.AnnData` object.
 
@@ -339,22 +354,42 @@ class MultiVAE(BaseModelClass):
         :param continuous_covariate_keys:
             Keys in `adata.obs` that correspond to continuous data
         """
+
+        if size_factor_key is not None and rna_indices_end is not None:
+            raise ValueError("Only one of [`size_factor_key`, `rna_indices_end`] can be specified, but both are not `None`.")
+
+        setup_method_args = cls._get_setup_method_args(**locals())
+
+        batch_field = fields.CategoricalObsField(REGISTRY_KEYS.BATCH_KEY, batch_key)
+        anndata_fields = [
+            fields.LayerField(REGISTRY_KEYS.X_KEY, layer=None,),
+            batch_field,
+            fields.CategoricalJointObsField(
+                REGISTRY_KEYS.CAT_COVS_KEY, categorical_covariate_keys
+            ),
+            fields.NumericalJointObsField(
+                REGISTRY_KEYS.CONT_COVS_KEY, continuous_covariate_keys
+            ),
+        ]
+
+        # only one can be not None
+        if size_factor_key is not None:
+            anndata_fields.append(fields.NumericalObsField(
+                REGISTRY_KEYS.SIZE_FACTOR_KEY, size_factor_key
+            ))
         if rna_indices_end is not None:
             if scipy.sparse.issparse(adata.X):
                 adata.obs.loc[:, "size_factors"] = adata[:, :rna_indices_end].X.A.sum(1).T.tolist()
             else:
                 adata.obs.loc[:, "size_factors"] = adata[:, :rna_indices_end].X.sum(1).T.tolist()
-
-            if continuous_covariate_keys:
-                continuous_covariate_keys.append("size_factors")
-            else:
-                continuous_covariate_keys = ["size_factors"]
-
-        return _setup_anndata(
-            adata,
-            continuous_covariate_keys=continuous_covariate_keys,
-            categorical_covariate_keys=categorical_covariate_keys,
+            anndata_fields.append(fields.NumericalObsField(
+                REGISTRY_KEYS.SIZE_FACTOR_KEY, "size_factors"
+            ))
+        adata_manager = AnnDataManager(
+            fields=anndata_fields, setup_method_args=setup_method_args
         )
+        adata_manager.register_fields(adata, **kwargs)
+        cls.register_manager(adata_manager)
 
     def plot_losses(self, save=None):
         """Plot losses."""
@@ -367,7 +402,7 @@ class MultiVAE(BaseModelClass):
 
         loss_names = ["kl_local", "elbo", "reconstruction_loss"]
         for i in range(self.module.n_modality):
-            loss_names.append(f"modality_{i}_recon_loss")
+            loss_names.append(f'modality_{i}_reconstruction_loss')
 
         if self.module.loss_coefs["integ"] != 0:
             loss_names.append("integ")
@@ -375,6 +410,8 @@ class MultiVAE(BaseModelClass):
         nrows = ceil(len(loss_names) / 2)
 
         plt.figure(figsize=(15, 5 * nrows))
+
+        # TODO for 0_train change name to modality_0_reconstruction_loss_train
 
         for i, name in enumerate(loss_names):
             plt.subplot(nrows, 2, i + 1)
@@ -385,6 +422,9 @@ class MultiVAE(BaseModelClass):
         if save is not None:
             plt.savefig(save, bbox_inches="tight")
 
+    # adjusted from scvi-tools
+    # https://github.com/scverse/scvi-tools/blob/0b802762869c43c9f49e69fe62b1a5a9b5c4dae6/scvi/model/base/_archesmixin.py#L30
+    # accessed on 5 November 2022
     @classmethod
     def load_query_data(
         cls,
@@ -396,7 +436,9 @@ class MultiVAE(BaseModelClass):
         """Online update of a reference model with scArches algorithm # TODO cite.
 
         :param adata:
-            AnnData organized in the same way as data used to train model
+            AnnData organized in the same way as data used to train model.
+            It is not necessary to run setup_anndata,
+            as AnnData is validated against the ``registry``.
         :param reference_model:
             Already instantiated model of the same class
         :param use_gpu:
@@ -405,7 +447,7 @@ class MultiVAE(BaseModelClass):
         :param freeze:
             Whether to freeze the encoders and decoders and only train the new weights
         """
-        use_gpu, device = parse_use_gpu_arg(use_gpu)
+        _, _, device = parse_use_gpu_arg(use_gpu)
 
         attr_dict = reference_model._get_user_attributes()
         attr_dict = {a[0]: a[1] for a in attr_dict if a[0][-1] == "_"}
