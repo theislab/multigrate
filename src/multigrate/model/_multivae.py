@@ -13,10 +13,12 @@ from scvi import REGISTRY_KEYS
 from scvi.data import AnnDataManager, fields
 from scvi.dataloaders import DataSplitter
 from scvi.model._utils import parse_use_gpu_arg
-from scvi.model.base import BaseModelClass
+from scvi.model.base import BaseModelClass, ArchesMixin
 from scvi.model.base._utils import _initialize_model
+from scvi.model.base._archesmixin import _get_loaded_data
 from scvi.train import TrainRunner, AdversarialTrainingPlan
 from scvi.train._callbacks import SaveBestState
+from scvi.data._constants import _MODEL_NAME_KEY, _SETUP_ARGS_KEY
 
 from ..dataloaders import GroupDataSplitter
 from ..module import MultiVAETorch
@@ -24,7 +26,7 @@ from ..module import MultiVAETorch
 logger = logging.getLogger(__name__)
 
 
-class MultiVAE(BaseModelClass):
+class MultiVAE(BaseModelClass, ArchesMixin):
     """Multigrate model.
 
     :param adata:
@@ -65,7 +67,6 @@ class MultiVAE(BaseModelClass):
         condition_decoders: bool = True,
         normalization: Literal["layer", "batch", None] = "layer",
         z_dim: int = 15,
-        h_dim: int = 32,
         losses: Optional[List[str]] = None,
         dropout: float = 0.2,
         cond_dim: int = 10,
@@ -76,14 +77,13 @@ class MultiVAE(BaseModelClass):
         n_layers_cont_embed: int = 1,
         n_layers_encoders: Optional[List[int]] = None,
         n_layers_decoders: Optional[List[int]] = None,
-        n_layers_shared_decoder: int = 1,
         n_hidden_cont_embed: int = 32,
         n_hidden_encoders: Optional[List[int]] = None,
         n_hidden_decoders: Optional[List[int]] = None,
-        n_hidden_shared_decoder: int = 32,
-        add_shared_decoder: bool = False,
         ignore_categories: Optional[List[str]] = None,
         mmd: Literal["latent", "marginal", "both"] = "latent",
+        activation: Optional[str] = "leaky_relu",
+        initialization: Optional[str] = None,
     ):
 
         super().__init__(adata)
@@ -117,7 +117,7 @@ class MultiVAE(BaseModelClass):
                 num_groups = len(self.adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY)['mappings'][integrate_on])
                 integrate_on_idx = self.adata_manager.registry["setup_args"]["categorical_covariate_keys"].index(integrate_on)
 
-        modality_lengths = list(adata.uns["modality_lengths"].values())
+        modality_lengths = [adata.uns["modality_lengths"][key] for key in sorted(adata.uns["modality_lengths"].keys())]
 
         cont_covariate_dims = []
         if len(cont_covs := self.adata_manager.get_state_registry(REGISTRY_KEYS.CONT_COVS_KEY)) > 0:
@@ -141,7 +141,6 @@ class MultiVAE(BaseModelClass):
             condition_decoders=condition_decoders,
             normalization=normalization,
             z_dim=z_dim,
-            h_dim=h_dim,
             losses=losses,
             dropout=dropout,
             cond_dim=cond_dim,
@@ -153,15 +152,14 @@ class MultiVAE(BaseModelClass):
             cont_covariate_dims=cont_covariate_dims,
             n_layers_encoders=n_layers_encoders,
             n_layers_decoders=n_layers_decoders,
-            n_layers_shared_decoder=n_layers_shared_decoder,
             n_hidden_encoders=n_hidden_encoders,
             n_hidden_decoders=n_hidden_decoders,
-            n_hidden_shared_decoder=n_hidden_shared_decoder,
             cont_cov_type=cont_cov_type,
             n_layers_cont_embed=n_layers_cont_embed,
             n_hidden_cont_embed=n_hidden_cont_embed,
-            add_shared_decoder=add_shared_decoder,
             mmd=mmd,
+            activation=activation,
+            initialization=initialization,
         )
 
         self.init_params_ = self._get_init_params(locals())
@@ -175,7 +173,7 @@ class MultiVAE(BaseModelClass):
 
             adata = self._validate_anndata(adata)
 
-            scdl = self._make_data_loader(adata=self.adata, batch_size=batch_size)
+            scdl = self._make_data_loader(adata=adata, batch_size=batch_size)
 
             imputed = []
             for tensors in scdl:
@@ -209,7 +207,7 @@ class MultiVAE(BaseModelClass):
     def train(
         self,
         max_epochs: int = 200,
-        lr: float = 1e-4,
+        lr: float = 5e-4,
         use_gpu: Optional[Union[str, int, bool]] = None,
         train_size: float = 0.9,
         validation_size: Optional[float] = None,
@@ -405,13 +403,11 @@ class MultiVAE(BaseModelClass):
             loss_names.append(f'modality_{i}_reconstruction_loss')
 
         if self.module.loss_coefs["integ"] != 0:
-            loss_names.append("integ")
+            loss_names.append("integ_loss")
 
         nrows = ceil(len(loss_names) / 2)
 
         plt.figure(figsize=(15, 5 * nrows))
-
-        # TODO for 0_train change name to modality_0_reconstruction_loss_train
 
         for i, name in enumerate(loss_names):
             plt.subplot(nrows, 2, i + 1)
@@ -432,6 +428,7 @@ class MultiVAE(BaseModelClass):
         reference_model: BaseModelClass,
         use_gpu: Optional[Union[str, int, bool]] = None,
         freeze: bool = True,
+        ignore_categories: Optional[List['str']] = None,
     ):
         """Online update of a reference model with scArches algorithm # TODO cite.
 
@@ -449,25 +446,41 @@ class MultiVAE(BaseModelClass):
         """
         _, _, device = parse_use_gpu_arg(use_gpu)
 
-        attr_dict = reference_model._get_user_attributes()
-        attr_dict = {a[0]: a[1] for a in attr_dict if a[0][-1] == "_"}
-        load_state_dict = deepcopy(reference_model.module.state_dict())
-        scvi_setup_dict = attr_dict.pop("scvi_setup_dict_")
+        attr_dict, var_names, load_state_dict = _get_loaded_data(
+            reference_model, device=device
+        )
 
-        transfer_anndata_setup(scvi_setup_dict, adata, extend_categories=True)
+        registry = attr_dict.pop("registry_")
+        if _MODEL_NAME_KEY in registry and registry[_MODEL_NAME_KEY] != cls.__name__:
+            raise ValueError(
+                "It appears you are loading a model from a different class."
+            )
+
+        if _SETUP_ARGS_KEY not in registry:
+            raise ValueError(
+                "Saved model does not contain original setup inputs. "
+                "Cannot load the original setup."
+            )
+
+        cls.setup_anndata(
+            adata,
+            source_registry=registry,
+            extend_categories=True,
+            allow_missing_labels=True,
+            **registry[_SETUP_ARGS_KEY],
+        )
 
         model = _initialize_model(cls, adata, attr_dict)
-
-        for attr, val in attr_dict.items():
-            setattr(model, attr, val)
+        adata_manager = model.get_anndata_manager(adata, required=True)
 
         # model tweaking
         num_of_cat_to_add = [
             new_cat - old_cat
-            for old_cat, new_cat in zip(
-                reference_model.adata.uns["_scvi"]["extra_categoricals"]["n_cats_per_key"],
-                adata.uns["_scvi"]["extra_categoricals"]["n_cats_per_key"],
-            )
+            for i, (old_cat, new_cat) in enumerate(zip(
+                reference_model.adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY).n_cats_per_key,
+                adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY).n_cats_per_key
+            )) 
+            if adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY)['field_keys'][i] not in ignore_categories
         ]
 
         model.to_device(device)

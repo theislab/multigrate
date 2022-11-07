@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional, Tuple, Union
 
 import torch
+import warnings
 from scvi import REGISTRY_KEYS
 from scvi._compat import Literal
 from scvi.distributions import NegativeBinomial, ZeroInflatedNegativeBinomial
@@ -30,8 +31,6 @@ class MultiVAETorch(BaseModuleClass):
         * ``None`` - no normalization
     :param z_dim:
         Dimensionality of the latent space
-    :param h_dim:
-        Dimensionality of the hidden space
     :param losses:
         List of which losses to use. For each modality can be one of the following:
         * ``'mse'`` - mean squared error
@@ -68,16 +67,10 @@ class MultiVAETorch(BaseModuleClass):
         Number of layers in each encoder
     :param n_layers_decoders:
         Number of layers in each decoder
-    :param n_layers_shared_decoder:
-        Number of layers in the shared decoder
     :param n_hidden_encoders:
         Number of nodes in hidden layers in encoders
     :param n_hidden_decoders:
         Number of nodes in hidden layers in decoders
-    :param n_hidden_shared_decoder:
-        Number of nodes in hidden layers in the shared decoder
-    :param add_shared_decoder:
-        Boolean to indicate if to use shared decoder
     :param mmd:
         How to calculate MMD loss. One of the following
         * ``'latent'`` - only on the latent representations
@@ -92,7 +85,6 @@ class MultiVAETorch(BaseModuleClass):
         condition_decoders=True,
         normalization: Literal["layer", "batch", None] = "layer",
         z_dim=15,
-        h_dim=32,
         losses=None,
         dropout=0.2,
         cond_dim=10,
@@ -106,13 +98,12 @@ class MultiVAETorch(BaseModuleClass):
         n_layers_cont_embed: int = 1,
         n_layers_encoders=None,
         n_layers_decoders=None,
-        n_layers_shared_decoder: int = 1,
         n_hidden_cont_embed: int = 32,
         n_hidden_encoders=None,
         n_hidden_decoders=None,
-        n_hidden_shared_decoder: int = 32,
-        add_shared_decoder=True,
         mmd="latent",
+        activation="leaky_relu",
+        initialization=None,
     ):
         super().__init__()
 
@@ -122,7 +113,6 @@ class MultiVAETorch(BaseModuleClass):
         self.n_modality = len(self.input_dims)
         self.kernel_type = kernel_type
         self.integrate_on_idx = integrate_on_idx
-        self.add_shared_decoder = add_shared_decoder
         self.n_cont_cov = len(cont_covariate_dims)
         self.cont_cov_type = cont_cov_type
         self.mmd = mmd
@@ -130,18 +120,24 @@ class MultiVAETorch(BaseModuleClass):
         # needed to query to reference
         self.normalization = normalization
         self.z_dim = z_dim
-        self.h_dim = h_dim
         self.dropout = dropout
         self.cond_dim = cond_dim
         self.kernel_type = kernel_type
         self.n_layers_cont_embed = n_layers_cont_embed
         self.n_layers_encoders = n_layers_encoders
         self.n_layers_decoders = n_layers_decoders
-        self.n_layers_shared_decoder = n_layers_shared_decoder
         self.n_hidden_cont_embed = n_hidden_cont_embed
         self.n_hidden_encoders = n_hidden_encoders
         self.n_hidden_decoders = n_hidden_decoders
-        self.n_hidden_shared_decoder = n_hidden_shared_decoder
+
+        if activation == 'leaky_relu':
+            self.activation = nn.LeakyReLU
+        elif activation == 'tanh':
+            self.activation = nn.Tanh
+        else:
+            raise NotImplementedError(
+                f'activation should be one of ["leaky_relu", "tanh"], but activation={activation} was passed.'
+            )
 
         # TODO: clean
         if losses is None:
@@ -158,20 +154,19 @@ class MultiVAETorch(BaseModuleClass):
             raise ValueError("cont_covariate_dims = None was passed.")
 
         # TODO: add warning that using these
-        if n_layers_encoders is None:
-            n_layers_encoders = [2] * self.n_modality
-        if n_layers_decoders is None:
-            n_layers_decoders = [2] * self.n_modality
-        if n_hidden_encoders is None:
-            n_hidden_encoders = [128] * self.n_modality
-        if n_hidden_decoders is None:
-            n_hidden_decoders = [128] * self.n_modality
+        if self.n_layers_encoders is None:
+            self.n_layers_encoders = [2] * self.n_modality
+        if self.n_layers_decoders is None:
+            self.n_layers_decoders = [2] * self.n_modality
+        if self.n_hidden_encoders is None:
+            self.n_hidden_encoders = [128] * self.n_modality
+        if self.n_hidden_decoders is None:
+            self.n_hidden_decoders = [128] * self.n_modality
 
         self.loss_coefs = {
             "recon": 1,
             "kl": 1e-6,
             "integ": 0,
-            "cycle": 0,
         }
         for i in range(self.n_modality):
             self.loss_coefs[str(i)] = 1
@@ -187,16 +182,6 @@ class MultiVAETorch(BaseModuleClass):
                 # self.register_parameter(name='theta', param=self.theta)
                 break
 
-        # shared decoder
-        if self.add_shared_decoder:
-            self.shared_decoder = MLP(
-                n_input=z_dim + self.n_modality,
-                n_output=h_dim,
-                n_layers=n_layers_shared_decoder,
-                n_hidden=n_hidden_shared_decoder,
-                dropout_rate=dropout,
-                normalization=normalization,
-            )
         # modality encoders
         cond_dim_enc = cond_dim * (len(cat_covariate_dims) + len(cont_covariate_dims)) if self.condition_encoders else 0
         self.encoders = [
@@ -207,12 +192,13 @@ class MultiVAETorch(BaseModuleClass):
                 n_hidden=n_hidden,
                 dropout_rate=dropout,
                 normalization=normalization,
+                activation=self.activation,
             )
-            for x_dim, n_layers, n_hidden in zip(self.input_dims, n_layers_encoders, n_hidden_encoders)
+            for x_dim, n_layers, n_hidden in zip(self.input_dims, self.n_layers_encoders, self.n_hidden_encoders)
         ]
         # modality decoders
         cond_dim_dec = cond_dim * (len(cat_covariate_dims) + len(cont_covariate_dims)) if self.condition_decoders else 0
-        dec_input = h_dim if self.add_shared_decoder else z_dim
+        dec_input = z_dim
 
         self.decoders = [
             Decoder(
@@ -222,10 +208,11 @@ class MultiVAETorch(BaseModuleClass):
                 n_hidden=n_hidden,
                 dropout_rate=dropout,
                 normalization=normalization,
+                activation=self.activation,
                 loss=loss,
             )
             for x_dim, loss, n_layers, n_hidden in zip(
-                self.input_dims, self.losses, n_layers_decoders, n_hidden_decoders
+                self.input_dims, self.losses, self.n_layers_decoders, self.n_hidden_decoders
             )
         ]
 
@@ -238,20 +225,21 @@ class MultiVAETorch(BaseModuleClass):
         if self.cont_cov_type == "mlp":
             self.cont_covariate_curves = torch.nn.ModuleList()
             for _ in range(self.n_cont_cov):
-                n_input = n_hidden_cont_embed if n_layers_cont_embed > 1 else 1
+                n_input = n_hidden_cont_embed if self.n_layers_cont_embed > 1 else 1
                 self.cont_covariate_curves.append(
                     nn.Sequential(
                         MLP(
                             n_input=1,
                             n_output=n_hidden_cont_embed,
-                            n_layers=n_layers_cont_embed - 1,
+                            n_layers=self.n_layers_cont_embed - 1,
                             n_hidden=n_hidden_cont_embed,
                             dropout_rate=dropout,
                             normalization=normalization,
+                            activation=self.activation,
                         ),
                         nn.Linear(n_input, 1),
                     )
-                    if n_layers_cont_embed > 1
+                    if self.n_layers_cont_embed > 1
                     else nn.Linear(n_input, 1)
                 )
         else:
@@ -260,8 +248,6 @@ class MultiVAETorch(BaseModuleClass):
                 # device=self.device,
                 nonlin=self.cont_cov_type,
             )
-
-        # self.cont_covariate_embeddings = [nn.Linear(dim, cond_dim) for dim in cont_covariate_dims] # dim is always 1 here
 
         # register sub-modules
         for i, (enc, dec, mu, logvar) in enumerate(zip(self.encoders, self.decoders, self.mus, self.logvars)):
@@ -273,7 +259,21 @@ class MultiVAETorch(BaseModuleClass):
         for i, emb in enumerate(self.cat_covariate_embeddings):
             self.add_module(f"cat_covariate_embedding_{i}", emb)
 
-        #   self.add_module(f'cont_covariate_embedding_{i}', emb)
+        if initialization is not None:
+            if initialization == 'xavier':
+                if activation != 'leaky_relu':
+                    warnings.warn(f"We recommend using Xavier initialization with leaky_relu, but activation={activation} was passed.")
+                for layer in self.modules():
+                    if isinstance(layer, nn.Linear):
+                        nn.init.xavier_uniform_(layer.weight, gain=nn.init.calculate_gain(activation))
+            elif initialization == 'kaiming':
+                if activation != 'tanh':
+                    warnings.warn(f"We recommend using Kaiming initialization with tanh, but activation={activation} was passed.")
+                for layer in self.modules():
+                    if isinstance(layer, nn.Linear):
+                        # following https://towardsdatascience.com/understand-kaiming-initialization-and-implementation-detail-in-pytorch-f7aa967e9138 (accessed 16.08.22)
+                        nn.init.kaiming_normal_(layer.weight, mode='fan_in')
+
 
     def _reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
@@ -292,16 +292,6 @@ class MultiVAETorch(BaseModuleClass):
     def _h_to_x(self, h, i):
         x = self.decoders[i](h)
         return x
-
-    # depricated
-    def _z_to_h(self, z, mod):
-        z = torch.stack([torch.cat((cell, self._modal_vector(mod)[0])) for cell in z])
-        h = self.shared_decoder(z)
-        return h
-
-    # depricated
-    def _modal_vector(self, i):
-        return F.one_hot(torch.tensor([i]).long(), self.n_modality).float().to(self.device)
 
     def _product_of_experts(self, mus, logvars, masks):
         vars = torch.exp(logvars)
@@ -432,14 +422,6 @@ class MultiVAETorch(BaseModuleClass):
             Reconstructed values for each modality.
         """
         z = z_joint.unsqueeze(1).repeat(1, self.n_modality, 1)
-
-        # depricated
-        if self.add_shared_decoder:
-            mod_vecs = self._modal_vector(list(range(self.n_modality)))  # shape 1 x n_mod x n_mod
-            mod_vecs = mod_vecs.repeat(z.shape[0], 1, 1)  # shape batch_size x n_mod x n_mod
-            z = torch.cat([z, mod_vecs], dim=-1)  # shape batch_size x n_mod x latent_dim+n_mod
-            z = self.shared_decoder(z)
-
         zs = torch.split(z, 1, dim=1)
 
         if self.condition_decoders:
@@ -481,7 +463,7 @@ class MultiVAETorch(BaseModuleClass):
         torch.FloatTensor,
         Dict[str, torch.FloatTensor],
     ]:
-        """Calculate the reconstruction loss, Kullback divergences, integration loss, cycle consistency loss and modality reconstruction losses.
+        """Calculate the (modality) reconstruction loss, Kullback divergences and integration loss.
 
         :param tensors:
             Tensor of values with shape ``(batch_size, n_input_features)``
@@ -492,7 +474,7 @@ class MultiVAETorch(BaseModuleClass):
         :param kl_weight:
             Weight of the KL loss
         :returns:
-            Reconstruction loss, Kullback divergences, integration loss, cycle consistency loss and modality reconstruction losses.
+            Reconstruction loss, Kullback divergences, integration loss and modality reconstruction losses.
         """
         x = tensors[REGISTRY_KEYS.X_KEY]
         if self.integrate_on_idx is not None:
@@ -516,7 +498,7 @@ class MultiVAETorch(BaseModuleClass):
         recon_loss, modality_recon_losses = self._calc_recon_loss(
             xs, rs, self.losses, integrate_on, size_factor, self.loss_coefs, masks
         )
-        kl_loss = kl(Normal(mu, torch.sqrt(torch.exp(logvar))), Normal(0, 1)).sum(dim=1)
+        kl_loss = kl_weight * kl(Normal(mu, torch.sqrt(torch.exp(logvar))), Normal(0, 1)).sum(dim=1)
 
         if self.loss_coefs["integ"] == 0:
             integ_loss = torch.tensor(0.0).to(self.device)
@@ -550,25 +532,10 @@ class MultiVAETorch(BaseModuleClass):
                     group_marginal = integrate_on[masks[i]]
                     integ_loss += self._calc_integ_loss(marginal_i, group_marginal).to(self.device)
 
-        cycle_loss = (
-            torch.tensor(0.0).to(self.device)
-            if self.loss_coefs["cycle"] == 0
-            else self._calc_cycle_loss(
-                xs,
-                z_joint,
-                integrate_on,
-                masks,
-                self.losses,
-                size_factor,
-                self.loss_coefs,
-            )
-        )
-
         loss = torch.mean(
             self.loss_coefs["recon"] * recon_loss
             + self.loss_coefs["kl"] * kl_loss
             + self.loss_coefs["integ"] * integ_loss
-            + self.loss_coefs["cycle"] * cycle_loss
         )
 
         modality_recon_losses = {f'modality_{i}_reconstruction_loss': modality_recon_losses[i] for i in range(len(modality_recon_losses))}
@@ -582,17 +549,18 @@ class MultiVAETorch(BaseModuleClass):
             extra_metrics=extra_metrics,
         )
 
-    # TODO ??
-    @torch.no_grad()
-    def sample(self, tensors):
-        """Sample from the latent."""
-        with torch.no_grad():
-            (
-                _,
-                generative_outputs,
-            ) = self.forward(tensors, compute_loss=False)
-
-        return generative_outputs["rs"]
+    @torch.inference_mode()
+    def sample(self, tensors, n_samples=1):
+        """Sample from the generative model."""
+        inference_kwargs = dict(n_samples=n_samples)
+        with torch.inference_mode():
+            _, generative_outputs, = self.forward(
+                tensors,
+                inference_kwargs=inference_kwargs,
+                compute_loss=False,
+            )
+        # TODO need to move to cpu?
+        return generative_outputs["rs"] 
 
     def _calc_recon_loss(self, xs, rs, losses, group, size_factor, loss_coefs, masks):
         loss = []
@@ -643,27 +611,6 @@ class MultiVAETorch(BaseModuleClass):
                 for j in range(i + 1, len(zs)):
                     loss += MMD(kernel_type=self.kernel_type)(zs[i], zs[j])
         return loss
-
-    def _calc_cycle_loss(self, xs, z, cat_covs, cont_covs, masks, losses, size_factor, loss_coefs):
-        generative_outputs = self.generative(z, cat_covs, cont_covs)
-        rs = generative_outputs["rs"]
-        for i, r in enumerate(rs):
-            if len(r) == 2:  # hack for zinb
-                rs[i] = r[0]
-            rs[i] = rs[i].squeeze()
-
-        masks_stacked = torch.stack(masks, dim=1)
-        complement_masks = torch.logical_not(masks_stacked)
-
-        inference_outputs = self.inference(rs, cat_covs, cont_covs, complement_masks)
-        z_joint = inference_outputs["z_joint"]
-        # generate again
-        generative_outputs = self.generative(z_joint, cat_covs, cont_covs)
-        rs = generative_outputs["rs"]
-
-        group = cat_covs[:, self.integrate_on_idx]
-
-        return self._calc_recon_loss(xs, rs, losses, group, size_factor, loss_coefs, masks)
 
     def _compute_cont_cov_embeddings_(self, covs):
         """Compute sum of drug embeddings, each of them multiplied by its dose-response curve.
