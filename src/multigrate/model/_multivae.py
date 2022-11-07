@@ -1,5 +1,4 @@
 import logging
-from copy import deepcopy
 from math import ceil
 from typing import Dict, List, Optional, Union
 
@@ -8,17 +7,17 @@ import pandas as pd
 import scipy
 import torch
 from matplotlib import pyplot as plt
-from scvi._compat import Literal
 from scvi import REGISTRY_KEYS
+from scvi._compat import Literal
 from scvi.data import AnnDataManager, fields
+from scvi.data._constants import _MODEL_NAME_KEY, _SETUP_ARGS_KEY
 from scvi.dataloaders import DataSplitter
 from scvi.model._utils import parse_use_gpu_arg
-from scvi.model.base import BaseModelClass, ArchesMixin
-from scvi.model.base._utils import _initialize_model
+from scvi.model.base import ArchesMixin, BaseModelClass
 from scvi.model.base._archesmixin import _get_loaded_data
-from scvi.train import TrainRunner, AdversarialTrainingPlan
+from scvi.model.base._utils import _initialize_model
+from scvi.train import AdversarialTrainingPlan, TrainRunner
 from scvi.train._callbacks import SaveBestState
-from scvi.data._constants import _MODEL_NAME_KEY, _SETUP_ARGS_KEY
 
 from ..dataloaders import GroupDataSplitter
 from ..module import MultiVAETorch
@@ -99,7 +98,9 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         if ignore_categories is None:
             ignore_categories = []
 
-        if ("nb" in losses or "zinb" in losses) and REGISTRY_KEYS.SIZE_FACTOR_KEY not in self.adata_manager.data_registry:
+        if (
+            "nb" in losses or "zinb" in losses
+        ) and REGISTRY_KEYS.SIZE_FACTOR_KEY not in self.adata_manager.data_registry:
             raise ValueError(f"Have to register {REGISTRY_KEYS.SIZE_FACTOR_KEY} when using 'nb' or 'zinb' loss.")
 
         num_groups = 1
@@ -114,25 +115,25 @@ class MultiVAE(BaseModelClass, ArchesMixin):
                     f"Specified integrate_on = '{integrate_on}' is in ignore_categories = {ignore_categories}."
                 )
             else:
-                num_groups = len(self.adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY)['mappings'][integrate_on])
-                integrate_on_idx = self.adata_manager.registry["setup_args"]["categorical_covariate_keys"].index(integrate_on)
+                num_groups = len(
+                    self.adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY)["mappings"][integrate_on]
+                )
+                integrate_on_idx = self.adata_manager.registry["setup_args"]["categorical_covariate_keys"].index(
+                    integrate_on
+                )
 
         modality_lengths = [adata.uns["modality_lengths"][key] for key in sorted(adata.uns["modality_lengths"].keys())]
 
         cont_covariate_dims = []
         if len(cont_covs := self.adata_manager.get_state_registry(REGISTRY_KEYS.CONT_COVS_KEY)) > 0:
-            cont_covariate_dims = [
-                1
-                for key in cont_covs['columns']
-                if key not in ignore_categories
-            ]
+            cont_covariate_dims = [1 for key in cont_covs["columns"] if key not in ignore_categories]
 
         cat_covariate_dims = []
         if len(cat_covs := self.adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY)) > 0:
             cat_covariate_dims = [
                 num_cat
                 for i, num_cat in enumerate(cat_covs.n_cats_per_key)
-                if cat_covs['field_keys'][i] not in ignore_categories
+                if cat_covs["field_keys"][i] not in ignore_categories
             ]
 
         self.module = MultiVAETorch(
@@ -352,40 +353,34 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         :param continuous_covariate_keys:
             Keys in `adata.obs` that correspond to continuous data
         """
-
         if size_factor_key is not None and rna_indices_end is not None:
-            raise ValueError("Only one of [`size_factor_key`, `rna_indices_end`] can be specified, but both are not `None`.")
+            raise ValueError(
+                "Only one of [`size_factor_key`, `rna_indices_end`] can be specified, but both are not `None`."
+            )
 
         setup_method_args = cls._get_setup_method_args(**locals())
 
         batch_field = fields.CategoricalObsField(REGISTRY_KEYS.BATCH_KEY, batch_key)
         anndata_fields = [
-            fields.LayerField(REGISTRY_KEYS.X_KEY, layer=None,),
+            fields.LayerField(
+                REGISTRY_KEYS.X_KEY,
+                layer=None,
+            ),
             batch_field,
-            fields.CategoricalJointObsField(
-                REGISTRY_KEYS.CAT_COVS_KEY, categorical_covariate_keys
-            ),
-            fields.NumericalJointObsField(
-                REGISTRY_KEYS.CONT_COVS_KEY, continuous_covariate_keys
-            ),
+            fields.CategoricalJointObsField(REGISTRY_KEYS.CAT_COVS_KEY, categorical_covariate_keys),
+            fields.NumericalJointObsField(REGISTRY_KEYS.CONT_COVS_KEY, continuous_covariate_keys),
         ]
 
         # only one can be not None
         if size_factor_key is not None:
-            anndata_fields.append(fields.NumericalObsField(
-                REGISTRY_KEYS.SIZE_FACTOR_KEY, size_factor_key
-            ))
+            anndata_fields.append(fields.NumericalObsField(REGISTRY_KEYS.SIZE_FACTOR_KEY, size_factor_key))
         if rna_indices_end is not None:
             if scipy.sparse.issparse(adata.X):
                 adata.obs.loc[:, "size_factors"] = adata[:, :rna_indices_end].X.A.sum(1).T.tolist()
             else:
                 adata.obs.loc[:, "size_factors"] = adata[:, :rna_indices_end].X.sum(1).T.tolist()
-            anndata_fields.append(fields.NumericalObsField(
-                REGISTRY_KEYS.SIZE_FACTOR_KEY, "size_factors"
-            ))
-        adata_manager = AnnDataManager(
-            fields=anndata_fields, setup_method_args=setup_method_args
-        )
+            anndata_fields.append(fields.NumericalObsField(REGISTRY_KEYS.SIZE_FACTOR_KEY, "size_factors"))
+        adata_manager = AnnDataManager(fields=anndata_fields, setup_method_args=setup_method_args)
         adata_manager.register_fields(adata, **kwargs)
         cls.register_manager(adata_manager)
 
@@ -400,7 +395,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
 
         loss_names = ["kl_local", "elbo", "reconstruction_loss"]
         for i in range(self.module.n_modality):
-            loss_names.append(f'modality_{i}_reconstruction_loss')
+            loss_names.append(f"modality_{i}_reconstruction_loss")
 
         if self.module.loss_coefs["integ"] != 0:
             loss_names.append("integ_loss")
@@ -428,7 +423,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         reference_model: BaseModelClass,
         use_gpu: Optional[Union[str, int, bool]] = None,
         freeze: bool = True,
-        ignore_categories: Optional[List['str']] = None,
+        ignore_categories: Optional[List["str"]] = None,
     ):
         """Online update of a reference model with scArches algorithm # TODO cite.
 
@@ -446,21 +441,14 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         """
         _, _, device = parse_use_gpu_arg(use_gpu)
 
-        attr_dict, var_names, load_state_dict = _get_loaded_data(
-            reference_model, device=device
-        )
+        attr_dict, var_names, load_state_dict = _get_loaded_data(reference_model, device=device)
 
         registry = attr_dict.pop("registry_")
         if _MODEL_NAME_KEY in registry and registry[_MODEL_NAME_KEY] != cls.__name__:
-            raise ValueError(
-                "It appears you are loading a model from a different class."
-            )
+            raise ValueError("It appears you are loading a model from a different class.")
 
         if _SETUP_ARGS_KEY not in registry:
-            raise ValueError(
-                "Saved model does not contain original setup inputs. "
-                "Cannot load the original setup."
-            )
+            raise ValueError("Saved model does not contain original setup inputs. " "Cannot load the original setup.")
 
         cls.setup_anndata(
             adata,
@@ -476,11 +464,13 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         # model tweaking
         num_of_cat_to_add = [
             new_cat - old_cat
-            for i, (old_cat, new_cat) in enumerate(zip(
-                reference_model.adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY).n_cats_per_key,
-                adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY).n_cats_per_key
-            )) 
-            if adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY)['field_keys'][i] not in ignore_categories
+            for i, (old_cat, new_cat) in enumerate(
+                zip(
+                    reference_model.adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY).n_cats_per_key,
+                    adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY).n_cats_per_key,
+                )
+            )
+            if adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY)["field_keys"][i] not in ignore_categories
         ]
 
         model.to_device(device)

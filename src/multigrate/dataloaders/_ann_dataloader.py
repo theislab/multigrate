@@ -4,8 +4,8 @@ from typing import Optional, Union
 
 import numpy as np
 import torch
-from scvi.dataloaders import AnnTorchDataset
 from scvi.data import AnnDataManager
+from scvi.dataloaders import AnnTorchDataset
 from torch.utils.data import DataLoader
 
 
@@ -176,17 +176,13 @@ class GroupAnnDataLoader(DataLoader):
     ):
 
         if adata_manager.adata is None:
-            raise ValueError(
-                "Please run register_fields() on your AnnDataManager object first."
-            )
+            raise ValueError("Please run register_fields() on your AnnDataManager object first.")
 
         if data_and_attributes is not None:
             data_registry = adata_manager.data_registry
             for key in data_and_attributes.keys():
                 if key not in data_registry.keys():
-                    raise ValueError(
-                        f"{key} required for model but not registered with AnnDataManager."
-                    )
+                    raise ValueError(f"{key} required for model but not registered with AnnDataManager.")
 
         if group_column not in adata_manager.registry["setup_args"]["categorical_covariate_keys"]:
             raise ValueError(
@@ -215,7 +211,9 @@ class GroupAnnDataLoader(DataLoader):
             indices = np.asarray(indices)
             sampler_kwargs["indices"] = indices
 
-        sampler_kwargs["group_labels"] = np.array(adata_manager.adata[indices].obsm["_scvi_extra_categorical_covs"][group_column])
+        sampler_kwargs["group_labels"] = np.array(
+            adata_manager.adata[indices].obsm["_scvi_extra_categorical_covs"][group_column]
+        )
 
         self.indices = indices
         self.sampler_kwargs = sampler_kwargs

@@ -17,7 +17,7 @@ class MLP(nn.Module):
         n_hidden: int = 128,
         dropout_rate: float = 0.1,
         normalization: str = "layer",
-        activation = nn.LeakyReLU,
+        activation=nn.LeakyReLU,
     ):
         super().__init__()
         use_layer_norm = False
@@ -61,7 +61,7 @@ class Decoder(nn.Module):
         n_hidden: int = 128,
         dropout_rate: float = 0.1,
         normalization: str = "layer",
-        activation = nn.LeakyReLU,
+        activation=nn.LeakyReLU,
         loss="mse",
     ):
         super().__init__()
@@ -72,13 +72,13 @@ class Decoder(nn.Module):
             self.loss = loss
 
         self.decoder = MLP(
-            n_input = n_input, 
-            n_output = n_hidden, 
-            n_layers = n_layers, 
-            n_hidden = n_hidden, 
-            dropout_rate = dropout_rate, 
-            normalization = normalization,
-            activation = activation,
+            n_input=n_input,
+            n_output=n_hidden,
+            n_layers=n_layers,
+            n_hidden=n_hidden,
+            dropout_rate=dropout_rate,
+            normalization=normalization,
+            activation=activation,
         )
         if loss == "mse":
             self.recon_decoder = nn.Linear(n_hidden, n_output)

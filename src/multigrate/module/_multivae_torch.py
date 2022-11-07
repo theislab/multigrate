@@ -1,7 +1,7 @@
+import warnings
 from typing import Dict, List, Optional, Tuple, Union
 
 import torch
-import warnings
 from scvi import REGISTRY_KEYS
 from scvi._compat import Literal
 from scvi.distributions import NegativeBinomial, ZeroInflatedNegativeBinomial
@@ -9,7 +9,6 @@ from scvi.module.base import BaseModuleClass, LossOutput, auto_move_data
 from torch import nn
 from torch.distributions import Normal
 from torch.distributions import kl_divergence as kl
-from torch.nn import functional as F
 
 from ..distributions import MMD
 from ..nn import MLP, Decoder, GeneralizedSigmoid
@@ -130,9 +129,9 @@ class MultiVAETorch(BaseModuleClass):
         self.n_hidden_encoders = n_hidden_encoders
         self.n_hidden_decoders = n_hidden_decoders
 
-        if activation == 'leaky_relu':
+        if activation == "leaky_relu":
             self.activation = nn.LeakyReLU
-        elif activation == 'tanh':
+        elif activation == "tanh":
             self.activation = nn.Tanh
         else:
             raise NotImplementedError(
@@ -260,20 +259,23 @@ class MultiVAETorch(BaseModuleClass):
             self.add_module(f"cat_covariate_embedding_{i}", emb)
 
         if initialization is not None:
-            if initialization == 'xavier':
-                if activation != 'leaky_relu':
-                    warnings.warn(f"We recommend using Xavier initialization with leaky_relu, but activation={activation} was passed.")
+            if initialization == "xavier":
+                if activation != "leaky_relu":
+                    warnings.warn(
+                        f"We recommend using Xavier initialization with leaky_relu, but activation={activation} was passed."
+                    )
                 for layer in self.modules():
                     if isinstance(layer, nn.Linear):
                         nn.init.xavier_uniform_(layer.weight, gain=nn.init.calculate_gain(activation))
-            elif initialization == 'kaiming':
-                if activation != 'tanh':
-                    warnings.warn(f"We recommend using Kaiming initialization with tanh, but activation={activation} was passed.")
+            elif initialization == "kaiming":
+                if activation != "tanh":
+                    warnings.warn(
+                        f"We recommend using Kaiming initialization with tanh, but activation={activation} was passed."
+                    )
                 for layer in self.modules():
                     if isinstance(layer, nn.Linear):
                         # following https://towardsdatascience.com/understand-kaiming-initialization-and-implementation-detail-in-pytorch-f7aa967e9138 (accessed 16.08.22)
-                        nn.init.kaiming_normal_(layer.weight, mode='fan_in')
-
+                        nn.init.kaiming_normal_(layer.weight, mode="fan_in")
 
     def _reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
@@ -538,7 +540,9 @@ class MultiVAETorch(BaseModuleClass):
             + self.loss_coefs["integ"] * integ_loss
         )
 
-        modality_recon_losses = {f'modality_{i}_reconstruction_loss': modality_recon_losses[i] for i in range(len(modality_recon_losses))}
+        modality_recon_losses = {
+            f"modality_{i}_reconstruction_loss": modality_recon_losses[i] for i in range(len(modality_recon_losses))
+        }
         extra_metrics = {"integ_loss": integ_loss}
         extra_metrics.update(modality_recon_losses)
 
@@ -552,7 +556,7 @@ class MultiVAETorch(BaseModuleClass):
     @torch.inference_mode()
     def sample(self, tensors, n_samples=1):
         """Sample from the generative model."""
-        inference_kwargs = dict(n_samples=n_samples)
+        inference_kwargs = {"n_samples": n_samples}
         with torch.inference_mode():
             _, generative_outputs, = self.forward(
                 tensors,
@@ -560,7 +564,7 @@ class MultiVAETorch(BaseModuleClass):
                 compute_loss=False,
             )
         # TODO need to move to cpu?
-        return generative_outputs["rs"] 
+        return generative_outputs["rs"]
 
     def _calc_recon_loss(self, xs, rs, losses, group, size_factor, loss_coefs, masks):
         loss = []
