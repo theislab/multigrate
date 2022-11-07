@@ -2,9 +2,9 @@ import copy
 import itertools
 from typing import Optional, Union
 
-import anndata
 import numpy as np
 import torch
+from scvi.data import AnnDataManager
 from scvi.dataloaders import AnnTorchDataset
 from torch.utils.data import DataLoader
 
@@ -138,14 +138,14 @@ class StratifiedSampler(torch.utils.data.sampler.Sampler):
 
 
 # adjusted from scvi-tools
-# https://github.com/YosefLab/scvi-tools/blob/ac0c3e04fcc2772fdcf7de4de819db3af9465b6b/scvi/dataloaders/_ann_dataloader.py#L88
-# accessed on 4 November 2021
+# https://github.com/scverse/scvi-tools/blob/0b802762869c43c9f49e69fe62b1a5a9b5c4dae6/scvi/dataloaders/_ann_dataloader.py#L89
+# accessed on 5 November 2022
 class GroupAnnDataLoader(DataLoader):
     """
     DataLoader for loading tensors from AnnData objects.
 
-    :param adata:
-        An anndata objects
+    :param adata_manager:
+        :class:`~scvi.data.AnnDataManager` object with a registered AnnData object.
     :param shuffle:
         Whether the data should be shuffled
     :param indices:
@@ -162,7 +162,7 @@ class GroupAnnDataLoader(DataLoader):
 
     def __init__(
         self,
-        adata: anndata.AnnData,
+        adata_manager: AnnDataManager,
         group_column: str,
         shuffle=True,
         shuffle_classes=True,
@@ -175,23 +175,21 @@ class GroupAnnDataLoader(DataLoader):
         **data_loader_kwargs,
     ):
 
-        if "_scvi" not in adata.uns.keys():
-            raise ValueError("Please run setup_anndata() on your anndata object first.")
+        if adata_manager.adata is None:
+            raise ValueError("Please run register_fields() on your AnnDataManager object first.")
 
         if data_and_attributes is not None:
-            data_registry = adata.uns["_scvi"]["data_registry"]
+            data_registry = adata_manager.data_registry
             for key in data_and_attributes.keys():
                 if key not in data_registry.keys():
-                    raise ValueError(f"{key} required for model but not included when setup_anndata was run")
+                    raise ValueError(f"{key} required for model but not registered with AnnDataManager.")
 
-        if group_column not in adata.uns["_scvi"]["extra_categoricals"]["keys"]:
+        if group_column not in adata_manager.registry["setup_args"]["categorical_covariate_keys"]:
             raise ValueError(
-                "{} required for model but not included into categorical covariates when setup_anndata was run".format(
-                    group_column
-                )
+                f"{group_column} required for model but not in categorical covariates has to be one of the registered categorical covariates = {adata_manager.registry['setup_args']['categorical_covariate_keys']}."
             )
 
-        self.dataset = AnnTorchDataset(adata, getitem_tensors=data_and_attributes)
+        self.dataset = AnnTorchDataset(adata_manager, getitem_tensors=data_and_attributes)
 
         if min_size_per_class is None:
             min_size_per_class = batch_size // 2
@@ -213,7 +211,9 @@ class GroupAnnDataLoader(DataLoader):
             indices = np.asarray(indices)
             sampler_kwargs["indices"] = indices
 
-        sampler_kwargs["group_labels"] = np.array(adata[indices].obsm["_scvi_extra_categoricals"][group_column])
+        sampler_kwargs["group_labels"] = np.array(
+            adata_manager.adata[indices].obsm["_scvi_extra_categorical_covs"][group_column]
+        )
 
         self.indices = indices
         self.sampler_kwargs = sampler_kwargs

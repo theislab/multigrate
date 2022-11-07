@@ -20,9 +20,8 @@ urls.Documentation = "https://multigrate.readthedocs.io/"
 urls.Source = "https://github.com/theislab/multigrate"
 urls.Home-page = "https://github.com/theislab/multigrate"
 dependencies = [
-    "scanpy==1.9.0",
-    "scvi-tools==0.14.6",
-    "torchmetrics==0.6.0",
+    "scanpy",
+    "scvi-tools",
     "matplotlib"
 ]
 

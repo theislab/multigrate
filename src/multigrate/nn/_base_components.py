@@ -17,6 +17,7 @@ class MLP(nn.Module):
         n_hidden: int = 128,
         dropout_rate: float = 0.1,
         normalization: str = "layer",
+        activation=nn.LeakyReLU,
     ):
         super().__init__()
         use_layer_norm = False
@@ -35,7 +36,7 @@ class MLP(nn.Module):
             dropout_rate=dropout_rate,
             use_layer_norm=use_layer_norm,
             use_batch_norm=use_batch_norm,
-            activation_fn=nn.LeakyReLU,
+            activation_fn=activation,
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -60,6 +61,7 @@ class Decoder(nn.Module):
         n_hidden: int = 128,
         dropout_rate: float = 0.1,
         normalization: str = "layer",
+        activation=nn.LeakyReLU,
         loss="mse",
     ):
         super().__init__()
@@ -69,8 +71,15 @@ class Decoder(nn.Module):
         else:
             self.loss = loss
 
-        self.decoder = MLP(n_input, n_hidden, n_layers, n_hidden, dropout_rate, normalization)  # embed_dim,
-
+        self.decoder = MLP(
+            n_input=n_input,
+            n_output=n_hidden,
+            n_layers=n_layers,
+            n_hidden=n_hidden,
+            dropout_rate=dropout_rate,
+            normalization=normalization,
+            activation=activation,
+        )
         if loss == "mse":
             self.recon_decoder = nn.Linear(n_hidden, n_output)
         elif loss == "nb":
@@ -130,15 +139,5 @@ class GeneralizedSigmoid(nn.Module):
             return (torch.log1p(x) * self.beta + self.bias).sigmoid()
         elif self.nonlin == "sigm":
             return (x * self.beta + self.bias).sigmoid()
-        else:
-            return x
-
-    # depricated
-    def one_cov(self, x, i):
-        """Forward computation on ``x`` along one dimension."""
-        if self.nonlin == "logsigm":
-            return (torch.log1p(x) * self.beta[0][i] + self.bias[0][i]).sigmoid()
-        elif self.nonlin == "sigm":
-            return (x * self.beta[0][i] + self.bias[0][i]).sigmoid()
         else:
             return x
