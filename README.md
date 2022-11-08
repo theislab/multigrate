@@ -27,13 +27,11 @@ conda activate multigrate
 
 There are several alternative options to install multigrate:
 
-<!--
-1) Install the latest release of `multigrate` from `PyPI <https://pypi.org/project/multigrate/>`_:
+1. Install the latest release from [PyPI][pip-link]:
 
 ```bash
 pip install multigrate
 ```
--->
 
 1. Install the latest development version:
 
@@ -74,3 +72,4 @@ If you use multigrate in your research, please consider citing
 [changelog]: https://multigrate.readthedocs.io/en/latest/changelog.html
 [link-docs]: https://multigrate.readthedocs.io
 [link-api]: https://multigrate.readthedocs.io/en/latest/api.html
+[pip-link]: https://pypi.org/project/multigrate/
