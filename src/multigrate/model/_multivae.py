@@ -450,6 +450,9 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         if _SETUP_ARGS_KEY not in registry:
             raise ValueError("Saved model does not contain original setup inputs. " "Cannot load the original setup.")
 
+        if ignore_categories is None:
+            ignore_categories = []
+
         cls.setup_anndata(
             adata,
             source_registry=registry,
