@@ -15,7 +15,7 @@ Please refer to the [documentation][link-docs]. In particular, the
 
 ## Installation
 
-You need to have Python 3.10 or newer installed on your system. If you don't have
+You need to have Python >= 3.8, < 3.11. If you don't have
 Python installed, we recommend installing [Miniconda](https://docs.conda.io/en/latest/miniconda.html).
 
 Create a new conda environment and activate it:

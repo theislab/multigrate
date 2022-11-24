@@ -8,10 +8,10 @@ and this project adheres to [Semantic Versioning][].
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
-## [Unreleased]
+### Version 0.0.2
 
-### Added
+- Bug fixes
 
--   Initial release
--   Added tutorial for paired and trimodal mosaic integration
--   Updated documentation
+### Version 0.0.1
+
+- Initial release

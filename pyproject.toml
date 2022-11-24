@@ -8,7 +8,7 @@ name = "multigrate"
 version = "0.0.2"
 description = "Multigrate: multimodal data integration for single-cell genomics."
 readme = "README.md"
-requires-python = ">=3.9,<3.11"
+requires-python = ">=3.8,<3.11"
 license = {file = "LICENSE"}
 authors = [
     {name = "Anastasia Litinetskaya"},
@@ -21,7 +21,7 @@ urls.Source = "https://github.com/theislab/multigrate"
 urls.Home-page = "https://github.com/theislab/multigrate"
 dependencies = [
     "scanpy",
-    "scvi-tools",
+    "scvi-tools>=0.19.0",
     "matplotlib"
 ]
 
