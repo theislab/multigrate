@@ -108,11 +108,11 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         if integrate_on is not None:
             if integrate_on not in self.adata_manager.registry["setup_args"]["categorical_covariate_keys"]:
                 raise ValueError(
-                    f"Cannot integrate on '{integrate_on}', has to be one of the registered categorical covariates = {self.adata_manager.registry['setup_args']['categorical_covariate_keys']}"
+                    "Cannot integrate on {!r}, has to be one of the registered categorical covariates = {}".format(integrate_on, self.adata_manager.registry['setup_args']['categorical_covariate_keys'])
                 )
             elif integrate_on in ignore_categories:
                 raise ValueError(
-                    f"Specified integrate_on = '{integrate_on}' is in ignore_categories = {ignore_categories}."
+                    "Specified integrate_on = '{!r}' is in ignore_categories = {}.".format(integrate_on, ignore_categories)
                 )
             else:
                 num_groups = len(
