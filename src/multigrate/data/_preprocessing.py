@@ -3,6 +3,7 @@ from typing import List, Optional, Union
 import anndata as ad
 import numpy as np
 import pandas as pd
+import warnings
 
 
 def organize_multiome_anndatas(
@@ -35,6 +36,9 @@ def organize_multiome_anndatas(
     for mod, modality_adatas in enumerate(adatas):
         for i, adata in enumerate(modality_adatas):
             if adata is not None:
+                # will create .obs['group'] later, so throw a warning here if the column already exists
+                if 'group' in adata.obs.columns:
+                    warnings.warn("Column `.obs['group']` will be overwritten. Please save the original data in another column if needed.")
                 # check that all adatas in the same modality have the same number of features
                 if (mod_length := modality_lengths.get(mod, None)) is None:
                     modality_lengths[mod] = adata.shape[1]
@@ -78,7 +82,7 @@ def organize_multiome_anndatas(
                 if layers[mod][i]:
                     layer = layers[mod][i]
                     adatas[mod][i] = adatas[mod][i].copy()
-                    adatas[mod][i].X = adatas[mod][i].layers[layer].A.copy()
+                    adatas[mod][i].X = adatas[mod][i].layers[layer].copy()
 
     # concat adatas within each modality first
     mod_adatas = []
