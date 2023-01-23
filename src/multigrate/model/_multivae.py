@@ -112,7 +112,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
                 )
             elif integrate_on in ignore_categories:
                 raise ValueError(
-                    "Specified integrate_on = '{!r}' is in ignore_categories = {}.".format(integrate_on, ignore_categories)
+                    "Specified integrate_on = {!r} is in ignore_categories = {}.".format(integrate_on, ignore_categories)
                 )
             else:
                 num_groups = len(
