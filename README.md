@@ -65,7 +65,7 @@ If you use multigrate in your research, please consider citing
 }
 ```
 
-[badge-tests]: https://img.shields.io/github/workflow/status/theislab/multigrate/Test/main
+[badge-tests]: https://img.shields.io/github/actions/workflow/status/theislab/multigrate/test.yml?branch=main
 [link-tests]: https://github.com/theislab/multigrate/actions/workflows/test.yaml
 [badge-docs]: https://img.shields.io/readthedocs/multigrate
 [issue-tracker]: https://github.com/theislab/multigrate/issues
