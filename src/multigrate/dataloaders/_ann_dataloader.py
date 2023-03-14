@@ -84,7 +84,6 @@ class StratifiedSampler(torch.utils.data.sampler.Sampler):
         self.length = ceil(tmp / classes_per_batch)
 
     def __iter__(self):
-
         classes_per_batch = int(self.batch_size / self.min_size_per_class)
 
         classes = list(dict.fromkeys(self.group_labels))
@@ -174,7 +173,6 @@ class GroupAnnDataLoader(DataLoader):
         sampler: Optional[torch.utils.data.sampler.Sampler] = StratifiedSampler,
         **data_loader_kwargs,
     ):
-
         if adata_manager.adata is None:
             raise ValueError("Please run register_fields() on your AnnDataManager object first.")
 
