@@ -1,7 +1,6 @@
-from typing import Optional
+from typing import Optional, Literal
 
 import torch
-from scvi._compat import Literal
 from scvi.nn import FCLayers
 from torch import nn
 

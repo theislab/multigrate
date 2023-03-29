@@ -1,6 +1,6 @@
 import logging
 from math import ceil
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Literal
 
 import anndata as ad
 import pandas as pd
@@ -8,7 +8,6 @@ import scipy
 import torch
 from matplotlib import pyplot as plt
 from scvi import REGISTRY_KEYS
-from scvi._compat import Literal
 from scvi.data import AnnDataManager, fields
 from scvi.data._constants import _MODEL_NAME_KEY, _SETUP_ARGS_KEY
 from scvi.dataloaders import DataSplitter
