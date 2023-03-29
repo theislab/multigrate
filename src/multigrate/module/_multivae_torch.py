@@ -557,7 +557,10 @@ class MultiVAETorch(BaseModuleClass):
         """Sample from the generative model."""
         inference_kwargs = {"n_samples": n_samples}
         with torch.inference_mode():
-            _, generative_outputs, = self.forward(
+            (
+                _,
+                generative_outputs,
+            ) = self.forward(
                 tensors,
                 inference_kwargs=inference_kwargs,
                 compute_loss=False,

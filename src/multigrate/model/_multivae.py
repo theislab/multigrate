@@ -83,7 +83,6 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         activation: Optional[str] = "leaky_relu",
         initialization: Optional[str] = None,
     ):
-
         super().__init__(adata)
 
         self.adata = adata
@@ -107,11 +106,15 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         if integrate_on is not None:
             if integrate_on not in self.adata_manager.registry["setup_args"]["categorical_covariate_keys"]:
                 raise ValueError(
-                    "Cannot integrate on {!r}, has to be one of the registered categorical covariates = {}".format(integrate_on, self.adata_manager.registry['setup_args']['categorical_covariate_keys'])
+                    "Cannot integrate on {!r}, has to be one of the registered categorical covariates = {}".format(
+                        integrate_on, self.adata_manager.registry["setup_args"]["categorical_covariate_keys"]
+                    )
                 )
             elif integrate_on in ignore_categories:
                 raise ValueError(
-                    "Specified integrate_on = {!r} is in ignore_categories = {}.".format(integrate_on, ignore_categories)
+                    "Specified integrate_on = {!r} is in ignore_categories = {}.".format(
+                        integrate_on, ignore_categories
+                    )
                 )
             else:
                 num_groups = len(
