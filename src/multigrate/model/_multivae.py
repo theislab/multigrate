@@ -1,6 +1,6 @@
 import logging
 from math import ceil
-from typing import Dict, List, Optional, Union, Literal
+from typing import Dict, List, Literal, Optional, Union
 
 import anndata as ad
 import pandas as pd

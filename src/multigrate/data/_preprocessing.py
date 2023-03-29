@@ -39,7 +39,8 @@ def organize_multiome_anndatas(
                 # will create .obs['group'] later, so throw a warning here if the column already exists
                 if "group" in adata.obs.columns:
                     warnings.warn(
-                        "Column `.obs['group']` will be overwritten. Please save the original data in another column if needed."
+                        "Column `.obs['group']` will be overwritten. Please save the original data in another column if needed.",
+                        stacklevel=2,
                     )
                 # check that all adatas in the same modality have the same number of features
                 if (mod_length := modality_lengths.get(mod, None)) is None:

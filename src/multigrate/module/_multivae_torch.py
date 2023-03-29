@@ -1,5 +1,5 @@
 import warnings
-from typing import Dict, List, Optional, Tuple, Union, Literal
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import torch
 from scvi import REGISTRY_KEYS
@@ -261,7 +261,8 @@ class MultiVAETorch(BaseModuleClass):
             if initialization == "xavier":
                 if activation != "leaky_relu":
                     warnings.warn(
-                        f"We recommend using Xavier initialization with leaky_relu, but activation={activation} was passed."
+                        f"We recommend using Xavier initialization with leaky_relu, but activation={activation} was passed.",
+                        stacklevel=2,
                     )
                 for layer in self.modules():
                     if isinstance(layer, nn.Linear):
@@ -269,7 +270,8 @@ class MultiVAETorch(BaseModuleClass):
             elif initialization == "kaiming":
                 if activation != "tanh":
                     warnings.warn(
-                        f"We recommend using Kaiming initialization with tanh, but activation={activation} was passed."
+                        f"We recommend using Kaiming initialization with tanh, but activation={activation} was passed.",
+                        stacklevel=2,
                     )
                 for layer in self.modules():
                     if isinstance(layer, nn.Linear):
