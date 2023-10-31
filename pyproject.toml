@@ -21,7 +21,7 @@ urls.Source = "https://github.com/theislab/multigrate"
 urls.Home-page = "https://github.com/theislab/multigrate"
 dependencies = [
     "scanpy",
-    "scvi-tools>=0.19.0",
+    "scvi-tools<1.0.0",
     "matplotlib"
 ]
 
