@@ -34,7 +34,7 @@ dev = [
 doc = [
     "notebook",
     "louvain",
-    "python-igraph",
+    "igraph",
     "leidenalg",
     "scanpy==1.9.0",
     "sphinx>=4",
