@@ -455,9 +455,7 @@ class MultiVAETorch(BaseModuleClass):
         rs = [self._h_to_x(z, mod) for mod, z in enumerate(zs)]
         return {"rs": rs}
 
-    def loss(
-        self, tensors, inference_outputs, generative_outputs, kl_weight: float = 1.0
-    ) -> Tuple[
+    def loss(self, tensors, inference_outputs, generative_outputs, kl_weight: float = 1.0) -> Tuple[
         torch.FloatTensor,
         Dict[str, torch.FloatTensor],
         torch.FloatTensor,
