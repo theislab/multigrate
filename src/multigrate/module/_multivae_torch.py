@@ -9,12 +9,12 @@ from torch import nn
 from torch.distributions import Normal
 from torch.distributions import kl_divergence as kl
 
-from multimil.distributions import MMD, Jeffreys
-from multimil.nn import MLP, Decoder, GeneralizedSigmoid
+from multigrate.distributions import MMD, Jeffreys
+from multigrate.nn import MLP, Decoder, GeneralizedSigmoid
 
 
 class MultiVAETorch(BaseModuleClass):
-    """MultiMIL's multimodal integration module.
+    """Multigrate's multimodal integration module.
 
     Parameters
     ----------

@@ -1,7 +1,7 @@
 from scvi.data import AnnDataManager
 from scvi.dataloaders import DataSplitter
 
-from multimil.dataloaders._ann_dataloader import GroupAnnDataLoader
+from multigrate.dataloaders._ann_dataloader import GroupAnnDataLoader
 
 
 # adjusted from scvi-tools

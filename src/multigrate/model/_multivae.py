@@ -15,15 +15,15 @@ from scvi.model.base._utils import _initialize_model
 from scvi.train import AdversarialTrainingPlan, TrainRunner
 from scvi.train._callbacks import SaveBestState
 
-from multimil.dataloaders import GroupDataSplitter
-from multimil.module import MultiVAETorch
-from multimil.utils import calculate_size_factor, plt_plot_losses
+from multigrate.dataloaders import GroupDataSplitter
+from multigrate.module import MultiVAETorch
+from multigrate.utils import calculate_size_factor, plt_plot_losses
 
 logger = logging.getLogger(__name__)
 
 
 class MultiVAE(BaseModelClass, ArchesMixin):
-    """MultiMIL multimodal integration model.
+    """Multigrate multimodal integration model.
 
     Parameters
     ----------
@@ -255,7 +255,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             z = outputs["z_joint"]
             latent += [z.cpu()]
 
-        adata.obsm["X_multiMIL"] = torch.cat(latent).numpy()
+        adata.obsm["X_multigrate"] = torch.cat(latent).numpy()
 
     def train(
         self,
