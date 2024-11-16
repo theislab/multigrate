@@ -1,4 +1,4 @@
-# Multimodal weakly supervised learning to identify disease-specific changes in single-cell atlases
+# Multigrate: multiomic data integration for single-cell genomics
 
 [![Tests][badge-tests]][link-tests]
 [![Documentation][badge-docs]][link-docs]
@@ -18,7 +18,6 @@ and the tutorials:
 
 -   [Paired integration and query-to-reference mapping](https://multigrate.readthedocs.io/en/latest/notebooks/paired_integration_cite-seq.html) [![Open In Colab][badge-colab]](https://colab.research.google.com/github/theislab/multigrate/blob/main/docs/notebooks/paired_integration_cite-seq.ipynb)
 -   [Trimodal integration and query-to-reference mapping](https://multigrate.readthedocs.io/en/latest/notebooks/trimodal_integration.html) [![Open In Colab][badge-colab]](https://colab.research.google.com/github/theislab/multigrate/blob/main/docs/notebooks/trimodal_integration.ipynb)
--   [Classification with MIL](https://multigrate.readthedocs.io/en/latest/notebooks/mil_classification.html) [![Open In Colab][badge-colab]](https://colab.research.google.com/github/theislab/multigrate/blob/main/docs/notebooks/mil_classification.ipynb)
 
 ## Installation
 
@@ -55,10 +54,10 @@ If you found a bug, please use the [issue tracker][issue-tracker].
 
 ## Citation
 
-> **Multimodal Weakly Supervised Learning to Identify Disease-Specific Changes in Single-Cell Atlases**
+> **Multigrate: Single-Cell Multi-Omic Data Integration**
 >
-> Anastasia Litinetskaya, Maiia Shulman, Soroor Hediyeh-zadeh, Amir Ali Moinfar, Fabiola Curion, Artur Szalata, Alireza Omidi, Mohammad Lotfollahi, and Fabian J. Theis. 
-> 2024. bioRxiv. https://doi.org/10.1101/2024.07.29.605625.
+> Mohammad Lotfollahi, Anastasia Litinetskaya, and Fabian J. Theis. 2022.
+> 2024. bioRxiv. [https://doi.org/10.1101/2022.03.16.484643][https://doi.org/10.1101/2022.03.16.484643].
 
 
 ## Reproducibility
