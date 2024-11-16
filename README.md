@@ -1,39 +1,45 @@
-# Multigrate: multiomic data integration for single-cell genomics
+# Multimodal weakly supervised learning to identify disease-specific changes in single-cell atlases
 
 [![Tests][badge-tests]][link-tests]
 [![Documentation][badge-docs]][link-docs]
 
-ICML 2021 CompBio Workshop paper is on [bioarxiv](https://www.biorxiv.org/content/10.1101/2022.03.16.484643v1).
-
-Also see the reproducibility [repo](https://github.com/theislab/multigrate_reproducibility).
+[badge-tests]: https://img.shields.io/github/actions/workflow/status/theislab/multigrate/test.yaml?branch=main
+[link-tests]: https://github.com/theislab/multigrate/actions/workflows/test.yml
+[badge-docs]: https://img.shields.io/readthedocs/multigrate
+[badge-colab]: https://colab.research.google.com/assets/colab-badge.svg
 
 ## Getting started
 
 Please refer to the [documentation][link-docs]. In particular, the
 
--   [API documentation][link-api].
+-   [API documentation][link-api]
+
+and the tutorials:
+
+-   [Paired integration and query-to-reference mapping](https://multigrate.readthedocs.io/en/latest/notebooks/paired_integration_cite-seq.html) [![Open In Colab][badge-colab]](https://colab.research.google.com/github/theislab/multigrate/blob/main/docs/notebooks/paired_integration_cite-seq.ipynb)
+-   [Trimodal integration and query-to-reference mapping](https://multigrate.readthedocs.io/en/latest/notebooks/trimodal_integration.html) [![Open In Colab][badge-colab]](https://colab.research.google.com/github/theislab/multigrate/blob/main/docs/notebooks/trimodal_integration.ipynb)
+-   [Classification with MIL](https://multigrate.readthedocs.io/en/latest/notebooks/mil_classification.html) [![Open In Colab][badge-colab]](https://colab.research.google.com/github/theislab/multigrate/blob/main/docs/notebooks/mil_classification.ipynb)
 
 ## Installation
 
-You need to have Python >= 3.8, < 3.11. If you don't have
-Python installed, we recommend installing [Miniconda](https://docs.conda.io/en/latest/miniconda.html).
+You need to have Python 3.10 or newer installed on your system. We recommend installing [Mambaforge](https://github.com/conda-forge/miniforge#mambaforge).
 
-Create a new conda environment and activate it:
+To create and activate a new environment:
 
 ```bash
-conda create -n multigrate python=3.10
-conda activate multigrate
+mamba create --name multigrate python=3.10
+mamba activate multigrate
 ```
 
-There are several alternative options to install multigrate:
+Next, there are several alternative options to install multigrate:
 
-1. Install the latest release from [PyPI][pip-link]:
+1. Install the latest release of `multigrate` from [PyPI][link-pypi]:
 
 ```bash
 pip install multigrate
 ```
 
-1. Install the latest development version:
+2. Or install the latest development version:
 
 ```bash
 pip install git+https://github.com/theislab/multigrate.git@main
@@ -49,27 +55,18 @@ If you found a bug, please use the [issue tracker][issue-tracker].
 
 ## Citation
 
-If you use multigrate in your research, please consider citing
+> **Multimodal Weakly Supervised Learning to Identify Disease-Specific Changes in Single-Cell Atlases**
+>
+> Anastasia Litinetskaya, Maiia Shulman, Soroor Hediyeh-zadeh, Amir Ali Moinfar, Fabiola Curion, Artur Szalata, Alireza Omidi, Mohammad Lotfollahi, and Fabian J. Theis. 
+> 2024. bioRxiv. https://doi.org/10.1101/2024.07.29.605625.
 
-```
-@article {Lotfollahi2022.03.16.484643,
-	author = {Lotfollahi, Mohammad and Litinetskaya, Anastasia and Theis, Fabian J.},
-	title = {Multigrate: single-cell multi-omic data integration},
-	elocation-id = {2022.03.16.484643},
-	year = {2022},
-	doi = {10.1101/2022.03.16.484643},
-	publisher = {Cold Spring Harbor Laboratory},
-	URL = {https://www.biorxiv.org/content/early/2022/03/17/2022.03.16.484643},
-	eprint = {https://www.biorxiv.org/content/early/2022/03/17/2022.03.16.484643.full.pdf},
-	journal = {bioRxiv}
-}
-```
 
-[badge-tests]: https://img.shields.io/github/actions/workflow/status/theislab/multigrate/test.yaml?branch=main
-[link-tests]: https://github.com/theislab/multigrate/actions/workflows/test.yaml
-[badge-docs]: https://img.shields.io/readthedocs/multigrate
+## Reproducibility
+
+Code and notebooks to reproduce the results from the paper are available at https://github.com/theislab/multigrate_reproducibility.
+
 [issue-tracker]: https://github.com/theislab/multigrate/issues
-[changelog]: https://multigrate.readthedocs.io/en/latest/changelog.html
+[changelog]: https://multigrate.readthedocs.io/latest/changelog.html
 [link-docs]: https://multigrate.readthedocs.io
-[link-api]: https://multigrate.readthedocs.io/en/latest/api.html
-[pip-link]: https://pypi.org/project/multigrate/
+[link-api]: https://multigrate.readthedocs.io/latest/api.html
+[link-pypi]: https://pypi.org/project/multigrate

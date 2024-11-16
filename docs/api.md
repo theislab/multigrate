@@ -3,29 +3,25 @@
 ## Model
 
 ```{eval-rst}
+.. module:: multigrate.model
 .. currentmodule:: multigrate
 
-```
-
-```{eval-rst}
 .. autosummary::
-   :toctree: generated
-   :nosignatures:
+    :toctree: generated
 
-   model.MultiVAE
+    model.MultiVAE
 ```
 
 ## Module
 
 ```{eval-rst}
+.. module:: multigrate.module
 .. currentmodule:: multigrate
 
-```
-
-```{eval-rst}
 .. autosummary::
-   :toctree: generated
-   :nosignatures:
+    :toctree: generated
 
-   module.MultiVAETorch
+    module.MultiVAETorch
+    module.MILClassifierTorch
+    module.MultiVAETorch_MIL
 ```

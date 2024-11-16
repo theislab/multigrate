@@ -1,6 +1,5 @@
 import copy
 import itertools
-from typing import Optional, Union
 
 import numpy as np
 import torch
@@ -15,16 +14,18 @@ from torch.utils.data import DataLoader
 class StratifiedSampler(torch.utils.data.sampler.Sampler):
     """Custom stratified sampler class which enables sampling the same number of observation from each group in each mini-batch.
 
-    :param indices:
-        list of indices to sample from
-    :param batch_size:
-        batch size of each iteration
-    :param shuffle:
-        if ``True``, shuffles indices before sampling
-    :param drop_last:
-        if int, drops the last batch if its length is less than drop_last.
-        if drop_last == True, drops last non-full batch.
-        if drop_last == False, iterate over all batches.
+    Parameters
+    ----------
+    indices
+        List of indices to sample from.
+    batch_size
+        Batch size of each iteration.
+    shuffle
+        If ``True``, shuffles indices before sampling.
+    drop_last
+        If int, drops the last batch if its length is less than drop_last.
+        If drop_last == True, drops last non-full batch.
+        If drop_last == False, iterate over all batches.
     """
 
     def __init__(
@@ -34,7 +35,7 @@ class StratifiedSampler(torch.utils.data.sampler.Sampler):
         batch_size: int,
         min_size_per_class: int,
         shuffle: bool = True,
-        drop_last: Union[bool, int] = True,
+        drop_last: bool | int = True,
         shuffle_classes: bool = True,
     ):
         if drop_last > batch_size:
@@ -140,23 +141,24 @@ class StratifiedSampler(torch.utils.data.sampler.Sampler):
 # https://github.com/scverse/scvi-tools/blob/0b802762869c43c9f49e69fe62b1a5a9b5c4dae6/scvi/dataloaders/_ann_dataloader.py#L89
 # accessed on 5 November 2022
 class GroupAnnDataLoader(DataLoader):
-    """
-    DataLoader for loading tensors from AnnData objects.
+    """DataLoader for loading tensors from AnnData objects.
 
-    :param adata_manager:
+    Parameters
+    ----------
+    adata_manager
         :class:`~scvi.data.AnnDataManager` object with a registered AnnData object.
-    :param shuffle:
-        Whether the data should be shuffled
-    :param indices:
-        The indices of the observations in the adata to load
-    :param batch_size:
-        minibatch size to load each iteration
-    :param data_and_attributes:
+    shuffle
+        Whether the data should be shuffled.
+    indices
+        The indices of the observations in the adata to load.
+    batch_size
+        Minibatch size to load each iteration.
+    data_and_attributes
         Dictionary with keys representing keys in data registry (`adata.uns["_scvi"]`)
         and value equal to desired numpy loading type (later made into torch tensor).
         If `None`, defaults to all registered data.
-    :param data_loader_kwargs:
-        Keyword arguments for :class:`~torch.utils.data.DataLoader`
+    data_loader_kwargs
+        Keyword arguments for :class:`~torch.utils.data.DataLoader`.
     """
 
     def __init__(
@@ -168,9 +170,9 @@ class GroupAnnDataLoader(DataLoader):
         indices=None,
         batch_size=128,
         min_size_per_class=None,
-        data_and_attributes: Optional[dict] = None,
-        drop_last: Union[bool, int] = True,
-        sampler: Optional[torch.utils.data.sampler.Sampler] = StratifiedSampler,
+        data_and_attributes: dict | None = None,
+        drop_last: bool | int = True,
+        sampler: torch.utils.data.sampler.Sampler | None = StratifiedSampler,
         **data_loader_kwargs,
     ):
         if adata_manager.adata is None:

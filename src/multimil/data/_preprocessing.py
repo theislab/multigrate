@@ -1,15 +1,14 @@
 import warnings
-from typing import List, Optional, Union
 
 import anndata as ad
 import numpy as np
 import pandas as pd
 
 
-def organize_multiome_anndatas(
-    adatas: List[List[Union[ad.AnnData, None]]],
-    layers: Optional[List[List[Union[str, None]]]] = None,
-):
+def organize_multimodal_anndatas(
+    adatas: list[list[ad.AnnData | None]],
+    layers: list[list[str | None]] | None = None,
+) -> ad.AnnData:
     """Concatenate all the input anndata objects.
 
     These anndata objects should already have been preprocessed so that all single-modality
@@ -17,13 +16,19 @@ def organize_multiome_anndatas(
     `.var`) should match between the objects for vertical integration and cell names (index of
     `.obs`) should match between the objects for horizontal integration.
 
-    :param adatas:
-        List of Lists with AnnData objects or None where each sublist corresponds to a modality
-    :param layers:
+    Parameters
+    ----------
+    adatas
+        List of Lists with AnnData objects or None where each sublist corresponds to a modality.
+    layers
         List of Lists of the same lengths as `adatas` specifying which `.layer` to use for each AnnData. Default is None which means using `.X`.
 
+    Returns
+    -------
+    Concatenated AnnData object across modalities and datasets.
     """
-    # TOOD: add checks for layers
+    # TODO: add checks for layers
+    # TODO: add check that len of modalities is the same as len of losses, etc
 
     # needed for scArches operation setup
     datasets_lengths = {}
@@ -43,8 +48,8 @@ def organize_multiome_anndatas(
                         stacklevel=2,
                     )
                 # check that all adatas in the same modality have the same number of features
-                if (mod_length := modality_lengths.get(mod, None)) is None:
-                    modality_lengths[mod] = adata.shape[1]
+                if (mod_length := modality_lengths.get(f"{mod}", None)) is None:
+                    modality_lengths[f"{mod}"] = adata.shape[1]
                 else:
                     if adata.shape[1] != mod_length:
                         raise ValueError(
@@ -76,7 +81,7 @@ def organize_multiome_anndatas(
     for mod, modality_adatas in enumerate(adatas):
         for i, adata in enumerate(modality_adatas):
             if not isinstance(adata, ad.AnnData) and adata is None:
-                X_zeros = np.zeros((datasets_lengths[i], modality_lengths[mod]))
+                X_zeros = np.zeros((datasets_lengths[i], modality_lengths[f"{mod}"]))
                 adatas[mod][i] = ad.AnnData(X_zeros, dtype=X_zeros.dtype)
                 adatas[mod][i].obs_names = datasets_obs_names[i]
                 adatas[mod][i].var_names = modality_var_names[mod]

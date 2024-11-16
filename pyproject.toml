@@ -2,13 +2,12 @@
 build-backend = "hatchling.build"
 requires = ["hatchling"]
 
-
 [project]
 name = "multigrate"
-version = "0.0.2"
-description = "Multigrate: multimodal data integration for single-cell genomics."
+version = "0.1.0"
+description = "Multimodal weakly supervised learning to identify disease-specific changes in single-cell atlases"
 readme = "README.md"
-requires-python = ">=3.8,<3.11"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [
     {name = "Anastasia Litinetskaya"},
@@ -20,37 +19,47 @@ urls.Documentation = "https://multigrate.readthedocs.io/"
 urls.Source = "https://github.com/theislab/multigrate"
 urls.Home-page = "https://github.com/theislab/multigrate"
 dependencies = [
+    "anndata<0.11",
+    "numpy<2.0",
+    # for debug logging (referenced from the issue template)
+    "session-info",
+    # multigrate specific
     "scanpy",
     "scvi-tools<1.0.0",
-    "matplotlib"
+    "matplotlib",
 ]
 
 [project.optional-dependencies]
 dev = [
-    # CLI for bumping the version number
-    "bump2version",
-    "pre-commit"
+    "pre-commit",
+    "twine>=4.0.2",
 ]
 doc = [
-    "notebook",
-    "louvain",
-    "python-igraph",
-    "leidenalg",
-    "scanpy==1.9.0",
+    "docutils>=0.8,!=0.18.*,!=0.19.*",
     "sphinx>=4",
-    "furo",
-    "myst-parser",
+    "sphinx-book-theme>=1.0.0",
+    "myst-nb>=1.1.0",
     "sphinxcontrib-bibtex>=1.0.0",
-    "scanpydoc[typehints]>=0.7.4",
+    "setuptools",  # Until pybtex >0.23.0 releases: https://bitbucket.org/pybtex-devs/pybtex/issues/169/
+    "sphinx-autodoc-typehints",
+    "sphinxext-opengraph",
     # For notebooks
-    "nbsphinx",
     "ipykernel",
-    # Preprocessing
-    "muon",
+    "ipython",
+    "sphinx-copybutton",
+    "pandas",
 ]
 test = [
     "pytest",
-    "pytest-cov",
+    "coverage",
+]
+tutorials = [
+    "muon",
+    "jupyterlab",
+    "ipywidgets",
+    "leidenalg",
+    "igraph",
+    "gdown",
 ]
 
 [tool.coverage.run]
@@ -66,32 +75,73 @@ addopts = [
     "--import-mode=importlib",  # allow using test files with same name
 ]
 
-[tool.isort]
-include_trailing_comma = true
-multi_line_output = 3
-profile = "black"
-skip_glob = ["docs/*"]
-
-[tool.black]
+[tool.ruff]
 line-length = 120
-target-version = ['py38']
-include = '\.pyi?$'
-exclude = '''
-(
-  /(
-      \.eggs
-    | \.git
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | _build
-    | buck-out
-    | build
-    | dist
-  )/
-)
-'''
+src = ["src"]
+extend-include = ["*.ipynb"]
 
-[tool.jupytext]
-formats = "ipynb,md"
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "F",  # Errors detected by Pyflakes
+    "E",  # Error detected by Pycodestyle
+    "W",  # Warning detected by Pycodestyle
+    "I",  # isort
+    "D",  # pydocstyle
+    "B",  # flake8-bugbear
+    "TID",  # flake8-tidy-imports
+    "C4",  # flake8-comprehensions
+    "BLE",  # flake8-blind-except
+    "UP",  # pyupgrade
+    "RUF100",  # Report unused noqa directives
+]
+ignore = [
+    # line too long -> we accept long comment lines; formatter gets rid of long code lines
+    "E501",
+    # Do not assign a lambda expression, use a def -> lambda expression assignments are convenient
+    "E731",
+    # allow I, O, l as variable names -> I is the identity matrix
+    "E741",
+    # Missing docstring in public package
+    "D104",
+    # Missing docstring in public module
+    "D100",
+    # Missing docstring in __init__
+    "D107",
+    # Errors from function calls in argument defaults. These are fine when the result is immutable.
+    "B008",
+    # __magic__ methods are often self-explanatory, allow missing docstrings
+    "D105",
+    # first line should end with a period [Bug: doesn't work with single-line docstrings]
+    "D400",
+    # First line should be in imperative mood; try rephrasing
+    "D401",
+    ## Disable one in each pair of mutually incompatible rules
+    # We don’t want a blank line before a class docstring
+    "D203",
+    # We want docstrings to start immediately after the opening triple quote
+    "D213",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"docs/*" = ["I"]
+"tests/*" = ["D"]
+"*/__init__.py" = ["F401"]
+"src/multigrate/module/__init__.py" = ["I"]
+
+[tool.cruft]
+skip = [
+    "tests",
+    "src/**/__init__.py",
+    "src/**/basic.py",
+    "docs/api.md",
+    "docs/changelog.md",
+    "docs/references.bib",
+    "docs/references.md",
+    "docs/notebooks/example.ipynb",
+]

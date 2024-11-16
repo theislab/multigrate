@@ -1,9 +1,19 @@
+# Notebooks
+.ipynb_checkpoints
+
+# Logs
+scvi_log/
+
 # Temp files
 .DS_Store
 *~
+buck-out/
 
 # Compiled files
+.venv/
 __pycache__/
+.mypy_cache/
+.ruff_cache/
 
 # Distribution / packaging
 /build/
@@ -14,6 +24,7 @@ __pycache__/
 /.pytest_cache/
 /.cache/
 /data/
+/node_modules/
 
 # docs
 /docs/generated/
@@ -23,8 +34,5 @@ __pycache__/
 /.idea/
 /.vscode/
 
-# data
+# Data
 *.h5ad
-
-# jupyter checkpoints
-.ipynb_checkpoints

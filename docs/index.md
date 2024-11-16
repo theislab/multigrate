@@ -6,9 +6,9 @@
 :hidden: true
 :maxdepth: 2
 
-api
-tutorials
-changelog
-references
-
+api.md
+tutorials.md
+changelog.md
+contributing.md
+references.md
 ```

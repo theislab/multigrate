@@ -1,12 +1,8 @@
 import logging
-from math import ceil
-from typing import Dict, List, Literal, Optional, Union
+from typing import Literal
 
 import anndata as ad
-import pandas as pd
-import scipy
 import torch
-from matplotlib import pyplot as plt
 from pytorch_lightning.callbacks import ModelCheckpoint
 from scvi import REGISTRY_KEYS
 from scvi.data import AnnDataManager, fields
@@ -19,74 +15,98 @@ from scvi.model.base._utils import _initialize_model
 from scvi.train import AdversarialTrainingPlan, TrainRunner
 from scvi.train._callbacks import SaveBestState
 
-from ..dataloaders import GroupDataSplitter
-from ..module import MultiVAETorch
+from multimil.dataloaders import GroupDataSplitter
+from multimil.module import MultiVAETorch
+from multimil.utils import calculate_size_factor, plt_plot_losses
 
 logger = logging.getLogger(__name__)
 
 
 class MultiVAE(BaseModelClass, ArchesMixin):
-    """Multigrate model.
+    """MultiMIL multimodal integration model.
 
-    :param adata:
+    Parameters
+    ----------
+    adata
         AnnData object that has been registered via :meth:`~multigrate.model.MultiVAE.setup_anndata`.
-    :param integrate_on:
+    integrate_on
         One of the categorical covariates refistered with :math:`~multigrate.model.MultiVAE.setup_anndata` to integrate on. The latent space then will be disentangled from this covariate. If `None`, no integration is performed.
-    :param condition_encoders:
+    condition_encoders
         Whether to concatentate covariate embeddings to the first layer of the encoders. Default is `False`.
-    :param condition_decoders:
+    condition_decoders
         Whether to concatentate covariate embeddings to the first layer of the decoders. Default is `True`.
-    :param normalization:
+    normalization
         What normalization to use; has to be one of `batch` or `layer`. Default is `layer`.
-    :param z_dim:
-        Dimensionality of the latent space. Default is 15.
-    :param losses:
+    z_dim
+        Dimensionality of the latent space. Default is 16.
+    losses
         Which losses to use for each modality. Has to be the same length as the number of modalities. Default is `MSE` for all modalities.
-    :param dropout:
+    dropout
         Dropout rate. Default is 0.2.
-    :param cond_dim:
-        Dimensionality of the covariate embeddings. Default is 10.
-    :param loss_coefs:
+    cond_dim
+        Dimensionality of the covariate embeddings. Default is 16.
+    kernel_type
+        Type of kernel to use for the MMD loss. Default is `gaussian`.
+    loss_coefs
         Loss coeficients for the different losses in the model. Default is 1 for all.
-    :param n_layers_encoders:
+    cont_cov_type
+        How to calculate embeddings for continuous covariates. Default is `logsim`.
+    n_layers_cont_embed
+        Number of layers for the continuous covariate embedding calculation. Default is 1.
+    n_layers_encoders
         Number of layers for each encoder. Default is 2 for all modalities. Has to be the same length as the number of modalities.
-    :param n_layers_decoders:
+    n_layers_decoders
         Number of layers for each decoder. Default is 2 for all modalities. Has to be the same length as the number of modalities.
-    :param n_hidden_encoders:
+    n_hidden_cont_embed
+        Number of nodes for each hidden layer in the continuous covariate embedding calculation. Default is 32.
+    n_hidden_encoders
         Number of nodes for each hidden layer in the encoders. Default is 32.
-    :param n_hidden_decoders:
+    n_hidden_decoders
         Number of nodes for each hidden layer in the decoders. Default is 32.
+    modality_alignment
+        Whether to align the modalities, one of ['MMD', 'Jeffreys', None]. Default is `None`.
+    alignment_type
+        Which alignment type to use, one of ['latent', 'marginal', 'both']. Default is `latent`.
+    activation
+        Activation function to use. Default is `leaky_relu`.
+    initialization
+        Initialization method to use. Default is `None`.
+    ignore_covariates
+        List of covariates to ignore. Needed for query-to-reference mapping. Default is `None`.
+    mix
+        How to mix the distributions to get the joint, one of ['product', 'mixture']. Default is `product`.
     """
 
     def __init__(
         self,
         adata: ad.AnnData,
-        integrate_on: Optional[str] = None,
-        condition_encoders: bool = False,
+        integrate_on: str | None = None,
+        condition_encoders: bool = True,
         condition_decoders: bool = True,
         normalization: Literal["layer", "batch", None] = "layer",
-        z_dim: int = 15,
-        losses: Optional[List[str]] = None,
+        z_dim: int = 16,
+        losses: list[str] | None = None,
         dropout: float = 0.2,
-        cond_dim: int = 10,
+        cond_dim: int = 16,
         kernel_type: Literal["gaussian", None] = "gaussian",
-        loss_coefs: Dict[int, float] = None,
-        integrate_on_idx: Optional[List[int]] = None,
+        loss_coefs: dict[int, float] = None,
         cont_cov_type: Literal["logsim", "sigm", None] = "logsigm",
-        n_layers_cont_embed: int = 1,
-        n_layers_encoders: Optional[List[int]] = None,
-        n_layers_decoders: Optional[List[int]] = None,
-        n_hidden_cont_embed: int = 32,
-        n_hidden_encoders: Optional[List[int]] = None,
-        n_hidden_decoders: Optional[List[int]] = None,
-        ignore_categories: Optional[List[str]] = None,
-        mmd: Literal["latent", "marginal", "both"] = "latent",
-        activation: Optional[str] = "leaky_relu",
-        initialization: Optional[str] = None,
+        n_layers_cont_embed: int = 1,  # TODO default to None?
+        n_layers_encoders: list[int] | None = None,
+        n_layers_decoders: list[int] | None = None,
+        n_hidden_cont_embed: int = 32,  # TODO default to None?
+        n_hidden_encoders: list[int] | None = None,
+        n_hidden_decoders: list[int] | None = None,
+        modality_alignment: Literal["MMD", "Jeffreys", None] = None,
+        alignment_type: Literal["latent", "marginal", "both"] = "latent",
+        activation: str | None = "leaky_relu",  # TODO add which options are impelemted
+        initialization: str | None = None,  # TODO add which options are impelemted
+        ignore_covariates: list[str] | None = None,
+        mix: Literal["product", "mixture"] = "product",
     ):
         super().__init__(adata)
 
-        self.adata = adata
+        # for the integration with the alignment loss
         self.group_column = integrate_on
 
         # TODO: add options for number of hidden layers, hidden layers dim and output activation functions
@@ -94,16 +114,16 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             raise ValueError('Normalization has to be one of ["layer", "batch", None]')
         # TODO: do some assertions for other parameters
 
-        if ignore_categories is None:
-            ignore_categories = []
+        if ignore_covariates is None:
+            ignore_covariates = []
 
         if (
             "nb" in losses or "zinb" in losses
         ) and REGISTRY_KEYS.SIZE_FACTOR_KEY not in self.adata_manager.data_registry:
             raise ValueError(f"Have to register {REGISTRY_KEYS.SIZE_FACTOR_KEY} when using 'nb' or 'zinb' loss.")
 
-        num_groups = 1
-        integrate_on_idx = None
+        self.num_groups = 1
+        self.integrate_on_idx = None
         if integrate_on is not None:
             if integrate_on not in self.adata_manager.registry["setup_args"]["categorical_covariate_keys"]:
                 raise ValueError(
@@ -111,36 +131,43 @@ class MultiVAE(BaseModelClass, ArchesMixin):
                         integrate_on, self.adata_manager.registry["setup_args"]["categorical_covariate_keys"]
                     )
                 )
-            elif integrate_on in ignore_categories:
+            elif integrate_on in ignore_covariates:
                 raise ValueError(
-                    "Specified integrate_on = {!r} is in ignore_categories = {}.".format(
-                        integrate_on, ignore_categories
-                    )
+                    f"Specified integrate_on = {integrate_on!r} is in ignore_covariates = {ignore_covariates}."
                 )
             else:
-                num_groups = len(
+                self.num_groups = len(
                     self.adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY)["mappings"][integrate_on]
                 )
-                integrate_on_idx = self.adata_manager.registry["setup_args"]["categorical_covariate_keys"].index(
+                self.integrate_on_idx = self.adata_manager.registry["setup_args"]["categorical_covariate_keys"].index(
                     integrate_on
                 )
 
-        modality_lengths = [adata.uns["modality_lengths"][key] for key in sorted(adata.uns["modality_lengths"].keys())]
+        self.modality_lengths = [
+            adata.uns["modality_lengths"][key] for key in sorted(adata.uns["modality_lengths"].keys())
+        ]
 
-        cont_covariate_dims = []
+        self.cont_covs_idx = []
+        self.cont_covariate_dims = []
         if len(cont_covs := self.adata_manager.get_state_registry(REGISTRY_KEYS.CONT_COVS_KEY)) > 0:
-            cont_covariate_dims = [1 for key in cont_covs["columns"] if key not in ignore_categories]
+            for i, key in enumerate(cont_covs["columns"]):
+                if key not in ignore_covariates:
+                    self.cont_covs_idx.append(i)
+                    self.cont_covariate_dims.append(1)
 
-        cat_covariate_dims = []
+        self.cat_covs_idx = []
+        self.cat_covariate_dims = []
         if len(cat_covs := self.adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY)) > 0:
-            cat_covariate_dims = [
-                num_cat
-                for i, num_cat in enumerate(cat_covs.n_cats_per_key)
-                if cat_covs["field_keys"][i] not in ignore_categories
-            ]
+            for i, num_cat in enumerate(cat_covs.n_cats_per_key):
+                if cat_covs["field_keys"][i] not in ignore_covariates:
+                    self.cat_covs_idx.append(i)
+                    self.cat_covariate_dims.append(num_cat)
+
+        self.cat_covs_idx = torch.tensor(self.cat_covs_idx)
+        self.cont_covs_idx = torch.tensor(self.cont_covs_idx)
 
         self.module = MultiVAETorch(
-            modality_lengths=modality_lengths,
+            modality_lengths=self.modality_lengths,
             condition_encoders=condition_encoders,
             condition_decoders=condition_decoders,
             normalization=normalization,
@@ -150,10 +177,12 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             cond_dim=cond_dim,
             kernel_type=kernel_type,
             loss_coefs=loss_coefs,
-            num_groups=num_groups,
-            integrate_on_idx=integrate_on_idx,
-            cat_covariate_dims=cat_covariate_dims,
-            cont_covariate_dims=cont_covariate_dims,
+            num_groups=self.num_groups,
+            integrate_on_idx=self.integrate_on_idx,
+            cat_covs_idx=self.cat_covs_idx,
+            cont_covs_idx=self.cont_covs_idx,
+            cat_covariate_dims=self.cat_covariate_dims,
+            cont_covariate_dims=self.cont_covariate_dims,
             n_layers_encoders=n_layers_encoders,
             n_layers_decoders=n_layers_decoders,
             n_hidden_encoders=n_hidden_encoders,
@@ -161,37 +190,57 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             cont_cov_type=cont_cov_type,
             n_layers_cont_embed=n_layers_cont_embed,
             n_hidden_cont_embed=n_hidden_cont_embed,
-            mmd=mmd,
+            modality_alignment=modality_alignment,
+            alignment_type=alignment_type,
             activation=activation,
             initialization=initialization,
+            mix=mix,
         )
 
         self.init_params_ = self._get_init_params(locals())
 
-    def impute(self, target_modality, adata=None, batch_size=256):
-        """Impute values for the target modality."""
-        with torch.no_grad():
-            self.module.eval()
-            if not self.is_trained_:
-                raise RuntimeError("Please train the model first.")
+    @torch.inference_mode()
+    def impute(self, adata=None, batch_size=256):
+        """Impute missing values in the adata object.
 
-            adata = self._validate_anndata(adata)
+        Parameters
+        ----------
+        adata
+            AnnData object to run the model on. If `None`, the model's AnnData object is used.
+        batch_size
+            Minibatch size to use. Default is 256.
+        """
+        if not self.is_trained_:
+            raise RuntimeError("Please train the model first.")
 
-            scdl = self._make_data_loader(adata=adata, batch_size=batch_size)
+        adata = self._validate_anndata(adata)
 
-            imputed = []
-            for tensors in scdl:
-                _, generative_outputs = self.module.forward(tensors, compute_loss=False)
+        scdl = self._make_data_loader(adata=adata, batch_size=batch_size)
 
-                rs = generative_outputs["rs"]
-                r = rs[target_modality]
-                imputed += [r.cpu()]
+        imputed = [[] for _ in range(len(self.modality_lengths))]
 
-            return torch.cat(imputed).squeeze().numpy()
+        for tensors in scdl:
+            inference_inputs = self.module._get_inference_input(tensors)
+            inference_outputs = self.module.inference(**inference_inputs)
+            generative_inputs = self.module._get_generative_input(tensors, inference_outputs)
+            outputs = self.module.generative(**generative_inputs)
+            for i, output in enumerate(outputs["rs"]):
+                imputed[i] += [output.cpu()]
+        for i in range(len(imputed)):
+            imputed[i] = torch.cat(imputed[i]).numpy()
+            adata.obsm[f"imputed_modality_{i}"] = imputed[i]
 
     @torch.inference_mode()
-    def get_latent_representation(self, adata=None, batch_size=256):
-        """Return the latent representation."""
+    def get_model_output(self, adata=None, batch_size=256):
+        """Save the latent representation in the adata object.
+
+        Parameters
+        ----------
+        adata
+            AnnData object to run the model on. If `None`, the model's AnnData object is used.
+        batch_size
+            Minibatch size to use. Default is 256.
+        """
         if not self.is_trained_:
             raise RuntimeError("Please train the model first.")
 
@@ -206,67 +255,81 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             z = outputs["z_joint"]
             latent += [z.cpu()]
 
-        adata.obsm["latent"] = torch.cat(latent).numpy()
+        adata.obsm["X_multiMIL"] = torch.cat(latent).numpy()
 
     def train(
         self,
         max_epochs: int = 200,
         lr: float = 5e-4,
-        use_gpu: Optional[Union[str, int, bool]] = None,
+        use_gpu: str | int | bool | None = None,
         train_size: float = 0.9,
-        validation_size: Optional[float] = None,
+        validation_size: float | None = None,
         batch_size: int = 256,
         weight_decay: float = 1e-3,
         eps: float = 1e-08,
         early_stopping: bool = True,
         save_best: bool = True,
-        check_val_every_n_epoch: Optional[int] = None,
-        n_epochs_kl_warmup: Optional[int] = None,
-        n_steps_kl_warmup: Optional[int] = None,
-        adversarial_mixing: bool = False,
-        plan_kwargs: Optional[dict] = None,
-        save_checkpoint_every_n_epochs: Optional[int] = None,
-        path_to_checkpoints: Optional[str] = None,
+        check_val_every_n_epoch: int | None = None,
+        n_epochs_kl_warmup: int | None = None,
+        n_steps_kl_warmup: int | None = None,
+        adversarial_mixing: bool = False,  # TODO check if suppored by us, i don't think it is
+        plan_kwargs: dict | None = None,
+        save_checkpoint_every_n_epochs: int | None = None,
+        path_to_checkpoints: str | None = None,
         **kwargs,
     ):
         """Train the model using amortized variational inference.
 
-        :param max_epochs:
-            Number of passes through the dataset
-        :param lr:
-            Learning rate for optimization
-        :param use_gpu:
+        Parameters
+        ----------
+        max_epochs
+            Number of passes through the dataset.
+        lr
+            Learning rate for optimization.
+        use_gpu
             Use default GPU if available (if None or True), or index of GPU to use (if int),
-            or name of GPU (if str), or use CPU (if False)
-        :param train_size:
-            Size of training set in the range [0.0, 1.0]
-        :param validation_size:
+            or name of GPU (if str), or use CPU (if False).
+        train_size
+            Size of training set in the range [0.0, 1.0].
+        validation_size
             Size of the test set. If `None`, defaults to 1 - `train_size`. If
-            `train_size + validation_size < 1`, the remaining cells belong to a test set
-        :param batch_size:
-            Minibatch size to use during training
-        :param weight_decay:
-            Weight decay regularization term for optimization
-        :param eps:
-            Optimizer eps
-        :param early_stopping:
-            Whether to perform early stopping with respect to the validation set
-        :param save_best:
+            `train_size + validation_size < 1`, the remaining cells belong to a test set.
+        batch_size
+            Minibatch size to use during training.
+        weight_decay
+            Weight decay regularization term for optimization.
+        eps
+            Optimizer eps.
+        early_stopping
+            Whether to perform early stopping with respect to the validation set.
+        save_best
             Save the best model state with respect to the validation loss, or use the final
-            state in the training procedure
-        :param check_val_every_n_epoch:
+            state in the training procedure.
+        check_val_every_n_epoch
             Check val every n train epochs. By default, val is not checked, unless `early_stopping` is `True`.
-            If so, val is checked every epoch
-        :param n_epochs_kl_warmup:
+            If so, val is checked every epoch.
+        n_epochs_kl_warmup
             Number of epochs to scale weight on KL divergences from 0 to 1.
             Overrides `n_steps_kl_warmup` when both are not `None`. Default is 1/3 of `max_epochs`.
-        :param n_steps_kl_warmup:
+        n_steps_kl_warmup
             Number of training steps (minibatches) to scale weight on KL divergences from 0 to 1.
             Only activated when `n_epochs_kl_warmup` is set to None. If `None`, defaults
-            to `floor(0.75 * adata.n_obs)`
-        :param plan_kwargs:
+            to `floor(0.75 * adata.n_obs)`.
+        adversarial_mixing
+            Whether to use adversarial mixing. Default is `False`.
+        plan_kwargs
             Keyword args for :class:`~scvi.train.TrainingPlan`. Keyword arguments passed to
-            `train()` will overwrite values present in `plan_kwargs`, when appropriate
+            `train()` will overwrite values present in `plan_kwargs`, when appropriate.
+        save_checkpoint_every_n_epochs
+            Save a checkpoint every n epochs. If `None`, no checkpoints are saved.
+        path_to_checkpoints
+            Path to save checkpoints. Required if `save_checkpoint_every_n_epochs` is not `None`.
+        kwargs
+            Additional keyword arguments for :class:`~scvi.train.TrainRunner`.
+
+        Returns
+        -------
+        Trainer object.
         """
         if n_epochs_kl_warmup is None:
             n_epochs_kl_warmup = max(max_epochs // 3, 1)
@@ -315,16 +378,6 @@ class MultiVAE(BaseModelClass, ArchesMixin):
                 batch_size=batch_size,
                 use_gpu=use_gpu,
             )
-
-        if self.group_column is not None:
-            data_splitter = GroupDataSplitter(
-                self.adata_manager,
-                group_column=self.group_column,
-                train_size=train_size,
-                validation_size=validation_size,
-                batch_size=batch_size,
-                use_gpu=use_gpu,
-            )
         else:
             data_splitter = DataSplitter(
                 self.adata_manager,
@@ -353,11 +406,10 @@ class MultiVAE(BaseModelClass, ArchesMixin):
     def setup_anndata(
         cls,
         adata: ad.AnnData,
-        batch_key: Optional[str] = None,
-        size_factor_key: Optional[str] = None,
-        rna_indices_end: Optional[int] = None,
-        categorical_covariate_keys: Optional[List[str]] = None,
-        continuous_covariate_keys: Optional[List[str]] = None,
+        size_factor_key: str | None = None,
+        rna_indices_end: int | None = None,
+        categorical_covariate_keys: list[str] | None = None,
+        continuous_covariate_keys: list[str] | None = None,
         **kwargs,
     ):
         """Set up :class:`~anndata.AnnData` object.
@@ -366,74 +418,49 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         This method will also compute the log mean and log variance per batch for the library size prior.
         None of the data in adata are modified. Only adds fields to adata.
 
-        :param adata:
-            AnnData object containing raw counts. Rows represent cells, columns represent features
-        :param rna_indices_end:
-            Integer to indicate where RNA feature end in the AnnData object. May be needed to calculate ``libary_size``.
-        :param categorical_covariate_keys:
-            Keys in `adata.obs` that correspond to categorical data
-        :param continuous_covariate_keys:
-            Keys in `adata.obs` that correspond to continuous data
+        Parameters
+        ----------
+        adata
+            AnnData object containing raw counts. Rows represent cells, columns represent features.
+        size_factor_key
+            Key in `adata.obs` containing the size factor. If `None`, will be calculated from the RNA counts.
+        rna_indices_end
+            Integer to indicate where RNA feature end in the AnnData object. Is used to calculate ``libary_size``.
+        categorical_covariate_keys
+            Keys in `adata.obs` that correspond to categorical data.
+        continuous_covariate_keys
+            Keys in `adata.obs` that correspond to continuous data.
+        kwargs
+            Additional parameters to pass to register_fields() of AnnDataManager.
         """
-        if size_factor_key is not None and rna_indices_end is not None:
-            raise ValueError(
-                "Only one of [`size_factor_key`, `rna_indices_end`] can be specified, but both are not `None`."
-            )
-
         setup_method_args = cls._get_setup_method_args(**locals())
 
-        batch_field = fields.CategoricalObsField(REGISTRY_KEYS.BATCH_KEY, batch_key)
         anndata_fields = [
             fields.LayerField(
                 REGISTRY_KEYS.X_KEY,
                 layer=None,
             ),
-            batch_field,
+            fields.CategoricalObsField(REGISTRY_KEYS.BATCH_KEY, None),  # TODO check if need to add if it's None
             fields.CategoricalJointObsField(REGISTRY_KEYS.CAT_COVS_KEY, categorical_covariate_keys),
             fields.NumericalJointObsField(REGISTRY_KEYS.CONT_COVS_KEY, continuous_covariate_keys),
         ]
+        size_factor_key = calculate_size_factor(adata, size_factor_key, rna_indices_end)
+        anndata_fields.append(fields.NumericalObsField(REGISTRY_KEYS.SIZE_FACTOR_KEY, size_factor_key))
 
-        # only one can be not None
-        if size_factor_key is not None:
-            anndata_fields.append(fields.NumericalObsField(REGISTRY_KEYS.SIZE_FACTOR_KEY, size_factor_key))
-        if rna_indices_end is not None:
-            if scipy.sparse.issparse(adata.X):
-                adata.obs.loc[:, "size_factors"] = adata[:, :rna_indices_end].X.A.sum(1).T.tolist()
-            else:
-                adata.obs.loc[:, "size_factors"] = adata[:, :rna_indices_end].X.sum(1).T.tolist()
-            anndata_fields.append(fields.NumericalObsField(REGISTRY_KEYS.SIZE_FACTOR_KEY, "size_factors"))
         adata_manager = AnnDataManager(fields=anndata_fields, setup_method_args=setup_method_args)
         adata_manager.register_fields(adata, **kwargs)
         cls.register_manager(adata_manager)
 
     def plot_losses(self, save=None):
-        """Plot losses."""
-        df = pd.DataFrame(self.history["train_loss_epoch"])
-        for key in self.history.keys():
-            if key != "train_loss_epoch":
-                df = df.join(self.history[key])
+        """Plot losses.
 
-        df["epoch"] = df.index
-
-        loss_names = ["kl_local", "elbo", "reconstruction_loss"]
-        for i in range(self.module.n_modality):
-            loss_names.append(f"modality_{i}_reconstruction_loss")
-
-        if self.module.loss_coefs["integ"] != 0:
-            loss_names.append("integ_loss")
-
-        nrows = ceil(len(loss_names) / 2)
-
-        plt.figure(figsize=(15, 5 * nrows))
-
-        for i, name in enumerate(loss_names):
-            plt.subplot(nrows, 2, i + 1)
-            plt.plot(df["epoch"], df[name + "_train"], ".-", label=name + "_train")
-            plt.plot(df["epoch"], df[name + "_validation"], ".-", label=name + "_validation")
-            plt.xlabel("epoch")
-            plt.legend()
-        if save is not None:
-            plt.savefig(save, bbox_inches="tight")
+        Parameters
+        ----------
+        save
+            If not None, save the plot to this location.
+        """
+        loss_names = self.module.select_losses_to_plot()
+        plt_plot_losses(self.history, loss_names, save)
 
     # adjusted from scvi-tools
     # https://github.com/scverse/scvi-tools/blob/0b802762869c43c9f49e69fe62b1a5a9b5c4dae6/scvi/model/base/_archesmixin.py#L30
@@ -443,27 +470,35 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         cls,
         adata: ad.AnnData,
         reference_model: BaseModelClass,
-        use_gpu: Optional[Union[str, int, bool]] = None,
+        use_gpu: str | int | bool | None = None,
         freeze: bool = True,
-        ignore_categories: Optional[List["str"]] = None,
-    ):
+        ignore_covariates: list[str] | None = None,
+    ) -> BaseModelClass:
         """Online update of a reference model with scArches algorithm # TODO cite.
 
-        :param adata:
+        Parameters
+        ----------
+        adata
             AnnData organized in the same way as data used to train model.
             It is not necessary to run setup_anndata,
             as AnnData is validated against the ``registry``.
-        :param reference_model:
-            Already instantiated model of the same class
-        :param use_gpu:
+        reference_model
+            Already instantiated model of the same class.
+        use_gpu
             Load model on default GPU if available (if None or True),
-            or index of GPU to use (if int), or name of GPU (if str), or use CPU (if False)
-        :param freeze:
-            Whether to freeze the encoders and decoders and only train the new weights
+            or index of GPU to use (if int), or name of GPU (if str), or use CPU (if False).
+        freeze
+            Whether to freeze the encoders and decoders and only train the new weights.
+        ignore_covariates
+            List of covariates to ignore. Needed for query-to-reference mapping. Default is `None`.
+
+        Returns
+        -------
+        Model with updated architecture and weights.
         """
         _, _, device = parse_use_gpu_arg(use_gpu)
 
-        attr_dict, var_names, load_state_dict = _get_loaded_data(reference_model, device=device)
+        attr_dict, _, load_state_dict = _get_loaded_data(reference_model, device=device)
 
         registry = attr_dict.pop("registry_")
         if _MODEL_NAME_KEY in registry and registry[_MODEL_NAME_KEY] != cls.__name__:
@@ -472,8 +507,8 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         if _SETUP_ARGS_KEY not in registry:
             raise ValueError("Saved model does not contain original setup inputs. " "Cannot load the original setup.")
 
-        if ignore_categories is None:
-            ignore_categories = []
+        if ignore_covariates is None:
+            ignore_covariates = []
 
         cls.setup_anndata(
             adata,
@@ -486,6 +521,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         model = _initialize_model(cls, adata, attr_dict)
         adata_manager = model.get_anndata_manager(adata, required=True)
 
+        # TODO add an exception if need to add new categories but condition_encoders is False
         # model tweaking
         num_of_cat_to_add = [
             new_cat - old_cat
@@ -493,9 +529,10 @@ class MultiVAE(BaseModelClass, ArchesMixin):
                 zip(
                     reference_model.adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY).n_cats_per_key,
                     adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY).n_cats_per_key,
+                    strict=False,
                 )
             )
-            if adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY)["field_keys"][i] not in ignore_categories
+            if adata_manager.get_state_registry(REGISTRY_KEYS.CAT_COVS_KEY)["field_keys"][i] not in ignore_covariates
         ]
 
         model.to_device(device)
@@ -519,14 +556,14 @@ class MultiVAE(BaseModelClass, ArchesMixin):
 
         model.module.load_state_dict(load_state_dict)
 
-        # freeze everything but the condition_layer in condMLPs
-        if freeze:
+        # freeze everything but the embeddings that have new categories
+        if freeze is True:
             for _, par in model.module.named_parameters():
                 par.requires_grad = False
             for i, embed in enumerate(model.module.cat_covariate_embeddings):
                 if num_of_cat_to_add[i] > 0:  # unfreeze the ones where categories were added
                     embed.weight.requires_grad = True
-            if model.module.integrate_on_idx:
+            if model.module.integrate_on_idx is not None:
                 model.module.theta.requires_grad = True
 
         model.module.eval()

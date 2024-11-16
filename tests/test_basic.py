@@ -4,7 +4,7 @@ import multigrate
 
 
 def test_package_has_version():
-    multigrate.__version__
+    assert multigrate.__version__ is not None
 
 
 @pytest.mark.skip(reason="This decorator should be removed when test passes.")

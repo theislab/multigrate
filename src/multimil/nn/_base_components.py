@@ -1,12 +1,32 @@
-from typing import Literal, Optional
+from typing import Literal
 
 import torch
 from scvi.nn import FCLayers
 from torch import nn
+from torch.nn import functional as F
 
 
 class MLP(nn.Module):
-    """A helper class to build blocks of fully-connected, normalization and dropout layers."""
+    """A helper class to build blocks of fully-connected, normalization, dropout and activation layers.
+
+    Parameters
+    ----------
+    n_input
+        Number of input features.
+    n_output
+        Number of output features.
+    n_layers
+        Number of hidden layers.
+    n_hidden
+        Number of hidden units.
+    dropout_rate
+        Dropout rate.
+    normalization
+        Type of normalization to use. Can be one of ["layer", "batch", "none"].
+    activation
+        Activation function to use.
+
+    """
 
     def __init__(
         self,
@@ -41,16 +61,40 @@ class MLP(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward computation on ``x``.
 
-        :param x:
-            tensor of values with shape ``(n_in,)``
-        :returns:
-            tensor of values with shape ``(n_out,)``
+        Parameters
+        ----------
+        x
+            Tensor of values with shape ``(n_input,)``.
+
+        Returns
+        -------
+        Tensor of values with shape ``(n_output,)``.
         """
         return self.mlp(x)
 
 
 class Decoder(nn.Module):
-    """A helper class to build custom decoders depending on which loss was passed."""
+    """A helper class to build custom decoders depending on which loss was passed.
+
+    Parameters
+    ----------
+    n_input
+        Number of input features.
+    n_output
+        Number of output features.
+    n_layers
+        Number of hidden layers.
+    n_hidden
+        Number of hidden units.
+    dropout_rate
+        Dropout rate.
+    normalization
+        Type of normalization to use. Can be one of ["layer", "batch", "none"].
+    activation
+        Activation function to use.
+    loss
+        Loss function to use. Can be one of ["mse", "nb", "zinb", "bce"].
+    """
 
     def __init__(
         self,
@@ -102,10 +146,14 @@ class Decoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward computation on ``x``.
 
-        :param x:
-            tensor of values with shape ``(n_in,)``
-        :returns:
-            tensor of values with shape ``(n_out,)``
+        Parameters
+        ----------
+        x
+            Tensor of values with shape ``(n_input,)``.
+
+        Returns
+        -------
+        Tensor of values with shape ``(n_output,)``.
         """
         x = self.decoder(x)
         if self.loss == "mse" or self.loss == "bce":
@@ -124,16 +172,33 @@ class GeneralizedSigmoid(nn.Module):
     Date: 26.01.2022
     Link to the used code:
     https://github.com/facebookresearch/CPA/blob/382ff641c588820a453d801e5d0e5bb56642f282/compert/model.py#L109
+
+    Parameters
+    ----------
+    dim
+        Number of input features.
+    nonlin
+        Type of non-linearity to use. Can be one of ["logsigm", "sigm"]. Default is "logsigm".
     """
 
-    def __init__(self, dim, nonlin: Optional[Literal["logsigm", "sigm"]] = "logsigm"):
+    def __init__(self, dim, nonlin: Literal["logsigm", "sigm"] | None = "logsigm"):
         super().__init__()
         self.nonlin = nonlin
         self.beta = torch.nn.Parameter(torch.ones(1, dim), requires_grad=True)
         self.bias = torch.nn.Parameter(torch.zeros(1, dim), requires_grad=True)
 
-    def forward(self, x):
-        """Forward computation on ``x``."""
+    def forward(self, x) -> torch.Tensor:
+        """Forward computation on ``x``.
+
+        Parameters
+        ----------
+        x
+            Tensor of values.
+
+        Returns
+        -------
+        Tensor of values with the same shape as ``x``.
+        """
         if self.nonlin == "logsigm":
             return (torch.log1p(x) * self.beta + self.bias).sigmoid()
         elif self.nonlin == "sigm":
