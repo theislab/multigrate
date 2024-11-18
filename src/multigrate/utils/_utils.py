@@ -1,9 +1,7 @@
 from math import ceil
 
-import numpy as np
 import pandas as pd
 import scipy
-import torch
 from matplotlib import pyplot as plt
 
 
@@ -41,6 +39,7 @@ def calculate_size_factor(adata, size_factor_key, rna_indices_end) -> str:
         else:
             adata.obs.loc[:, "size_factors"] = adata_rna.X.sum(1).T.tolist()
         return "size_factors"
+
 
 def plt_plot_losses(history, loss_names, save):
     """Plot losses.

@@ -3,7 +3,6 @@ from typing import Literal
 import torch
 from scvi.nn import FCLayers
 from torch import nn
-from torch.nn import functional as F
 
 
 class MLP(nn.Module):

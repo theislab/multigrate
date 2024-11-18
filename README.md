@@ -56,9 +56,7 @@ If you found a bug, please use the [issue tracker][issue-tracker].
 
 > **Multigrate: Single-Cell Multi-Omic Data Integration**
 >
-> Mohammad Lotfollahi, Anastasia Litinetskaya, and Fabian J. Theis. 2022.
-> 2024. bioRxiv. [https://doi.org/10.1101/2022.03.16.484643][https://doi.org/10.1101/2022.03.16.484643].
-
+> Mohammad Lotfollahi, Anastasia Litinetskaya, and Fabian J. Theis. 2022. 2024. bioRxiv. [https://doi.org/10.1101/2022.03.16.484643][https://doi.org/10.1101/2022.03.16.484643].
 
 ## Reproducibility
 
