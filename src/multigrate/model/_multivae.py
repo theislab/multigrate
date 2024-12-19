@@ -261,31 +261,20 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             inference_inputs = self.module._get_inference_input(tensors)
             outputs = self.module.inference(**inference_inputs)
             z = outputs["z_joint"]
-            # print('z_joint')
-            # print(outputs["z_joint"].shape)
             if save_unimodal_latent is True:
-                # print('z_marginal')
-                # print(len(outputs["z_marginal"]))
-                # print(outputs["z_marginal"].shape)
                 z_marginal += [outputs["z_marginal"].cpu()]
             if save_unimodal_params is True:
-                # print('params marginal')
-                # print(outputs["mu_marginal"].shape)
-                # print(outputs["logvar_marginal"].shape)
                 mu_marginal += [outputs["mu_marginal"].cpu()]
                 logvar_marginal += [outputs["logvar_marginal"].cpu()]
             latent += [z.cpu()]
 
         if save_unimodal_latent is True:
             z_marginal = torch.cat(z_marginal)
-            print(z_marginal.shape)
             for i in range(z_marginal.shape[1]):
                 adata.obsm[f"X_unimodal_{i}"] = z_marginal[:, i, :].squeeze(1).numpy()
         if save_unimodal_params is True:
             mu_marginal = torch.cat(mu_marginal)
             logvar_marginal = torch.cat(logvar_marginal)
-            print(mu_marginal.shape)
-            print(logvar_marginal.shape)
             for i in range(mu_marginal.shape[1]):
                 adata.obsm[f"mu_unimodal_{i}"] = mu_marginal[:, i, :].squeeze(1).numpy()
                 adata.obsm[f"logvar_unimodal_{i}"] = logvar_marginal[:, i, :].squeeze(1).numpy()
