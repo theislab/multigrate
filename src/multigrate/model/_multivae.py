@@ -528,7 +528,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             raise ValueError("It appears you are loading a model from a different class.")
 
         if _SETUP_ARGS_KEY not in registry:
-            raise ValueError("Saved model does not contain original setup inputs. " "Cannot load the original setup.")
+            raise ValueError("Saved model does not contain original setup inputs. Cannot load the original setup.")
 
         if ignore_covariates is None:
             ignore_covariates = []
