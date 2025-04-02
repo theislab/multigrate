@@ -12,12 +12,12 @@
 
 Please refer to the [documentation][link-docs]. In particular, the
 
-- [API documentation][link-api]
+-   [API documentation][link-api]
 
 and the tutorials:
 
-- [Paired integration and query-to-reference mapping](https://multigrate.readthedocs.io/en/latest/notebooks/paired_integration_cite-seq.html) [![Open In Colab][badge-colab]](https://colab.research.google.com/github/theislab/multigrate/blob/main/docs/notebooks/paired_integration_cite-seq.ipynb)
-- [Trimodal integration and query-to-reference mapping](https://multigrate.readthedocs.io/en/latest/notebooks/trimodal_integration.html) [![Open In Colab][badge-colab]](https://colab.research.google.com/github/theislab/multigrate/blob/main/docs/notebooks/trimodal_integration.ipynb)
+-   [Paired integration and query-to-reference mapping](https://multigrate.readthedocs.io/en/latest/notebooks/paired_integration_cite-seq.html) [![Open In Colab][badge-colab]](https://colab.research.google.com/github/theislab/multigrate/blob/main/docs/notebooks/paired_integration_cite-seq.ipynb)
+-   [Trimodal integration and query-to-reference mapping](https://multigrate.readthedocs.io/en/latest/notebooks/trimodal_integration.html) [![Open In Colab][badge-colab]](https://colab.research.google.com/github/theislab/multigrate/blob/main/docs/notebooks/trimodal_integration.ipynb)
 
 ## Installation
 
@@ -54,7 +54,7 @@ If you found a bug, please use the [issue tracker][issue-tracker].
 
 ## Citation
 
-> Anastasia Litinetskaya, Maiia Schulman, Fabiola Curion, Artur Szalata, Alireza Omidi, Mohammad Lotfollahi, and Fabian Theis. 2022. "Integration and querying of multimodal single-cell data with PoE-VAE." *bioRxiv*. https://doi.org/10.1101/2022.03.16.484643.
+> Anastasia Litinetskaya, Maiia Schulman, Fabiola Curion, Artur Szalata, Alireza Omidi, Mohammad Lotfollahi, and Fabian Theis. 2022. "Integration and querying of multimodal single-cell data with PoE-VAE." _bioRxiv_. https://doi.org/10.1101/2022.03.16.484643.
 
 ## Reproducibility
 
