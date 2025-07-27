@@ -291,7 +291,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         weight_decay: float = 1e-3,
         eps: float = 1e-08,
         early_stopping: bool = True,
-        early_stopping_patience = 50,
+        early_stopping_patience=50,
         save_best: bool = True,
         check_val_every_n_epoch: int | None = None,
         n_epochs_kl_warmup: int | None = None,

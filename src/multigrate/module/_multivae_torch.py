@@ -309,7 +309,7 @@ class MultiVAETorch(BaseModuleClass):
         return x
 
     def _product_of_experts(self, mus, logvars, masks):
-        #print(mus, logvars, masks)
+        # print(mus, logvars, masks)
         vars = torch.exp(logvars)
         masks = masks.unsqueeze(-1).repeat(1, 1, vars.shape[-1])
         mus_joint = torch.sum(mus * masks / vars, dim=1)
