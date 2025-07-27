@@ -291,6 +291,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         weight_decay: float = 1e-3,
         eps: float = 1e-08,
         early_stopping: bool = True,
+        early_stopping_patience = 50,
         save_best: bool = True,
         check_val_every_n_epoch: int | None = None,
         n_epochs_kl_warmup: int | None = None,
@@ -419,7 +420,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             early_stopping=early_stopping,
             check_val_every_n_epoch=check_val_every_n_epoch,
             early_stopping_monitor="reconstruction_loss_validation",
-            early_stopping_patience=50,
+            early_stopping_patience=early_stopping_patience,
             enable_checkpointing=True,
             **kwargs,
         )
