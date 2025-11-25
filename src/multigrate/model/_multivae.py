@@ -411,6 +411,8 @@ class MultiVAE(BaseModelClass, ArchesMixin):
                 batch_size=batch_size,
             )
         training_plan = AdversarialTrainingPlan(self.module, **plan_kwargs)
+        # Allow enable_checkpointing to be overridden via kwargs
+        enable_checkpointing = kwargs.pop("enable_checkpointing", True)
         runner = TrainRunner(
             self,
             training_plan=training_plan,
@@ -422,7 +424,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             check_val_every_n_epoch=check_val_every_n_epoch,
             early_stopping_monitor="reconstruction_loss_validation",
             early_stopping_patience=50,
-            enable_checkpointing=True,
+            enable_checkpointing=enable_checkpointing,
             **kwargs,
         )
         return runner()
