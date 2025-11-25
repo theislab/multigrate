@@ -283,7 +283,8 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         self,
         max_epochs: int = 200,
         lr: float = 5e-4,
-        use_gpu: str | int | bool | None = None,
+        accelerator: str = "auto",
+        devices: int | list[int] | str = "auto",
         train_size: float = 0.9,
         validation_size: float | None = None,
         batch_size: int = 256,
@@ -308,9 +309,12 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             Number of passes through the dataset.
         lr
             Learning rate for optimization.
-        use_gpu
-            Use default GPU if available (if None or True), or index of GPU to use (if int),
-            or name of GPU (if str), or use CPU (if False).
+        accelerator
+            Supports passing different accelerator types ("cpu", "gpu", "tpu", "auto").
+        devices
+            The device(s) to use. Can be set to a non-negative index (int or str),
+            a sequence of device indices (list or comma-separated str), the value -1
+            to indicate all available devices, or "auto" for automatic selection.
         train_size
             Size of training set in the range [0.0, 1.0].
         validation_size
@@ -398,7 +402,6 @@ class MultiVAE(BaseModelClass, ArchesMixin):
                 train_size=train_size,
                 validation_size=validation_size,
                 batch_size=batch_size,
-                use_gpu=use_gpu,
             )
         else:
             data_splitter = DataSplitter(
@@ -406,7 +409,6 @@ class MultiVAE(BaseModelClass, ArchesMixin):
                 train_size=train_size,
                 validation_size=validation_size,
                 batch_size=batch_size,
-                use_gpu=use_gpu,
             )
         training_plan = AdversarialTrainingPlan(self.module, **plan_kwargs)
         runner = TrainRunner(
@@ -414,7 +416,8 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             training_plan=training_plan,
             data_splitter=data_splitter,
             max_epochs=max_epochs,
-            use_gpu=use_gpu,
+            accelerator=accelerator,
+            devices=devices,
             early_stopping=early_stopping,
             check_val_every_n_epoch=check_val_every_n_epoch,
             early_stopping_monitor="reconstruction_loss_validation",
