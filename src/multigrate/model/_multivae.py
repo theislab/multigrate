@@ -12,7 +12,7 @@ from scvi.model._utils import parse_device_args
 from scvi.model.base import ArchesMixin, BaseModelClass
 from scvi.model.base._archesmixin import _get_loaded_data
 from scvi.model.base._save_load import _initialize_model
-from scvi.train import AdversarialTrainingPlan, TrainRunner, SaveCheckpoint
+from scvi.train import AdversarialTrainingPlan, SaveCheckpoint, TrainRunner
 
 from multigrate.dataloaders import GroupDataSplitter
 from multigrate.module import MultiVAETorch
