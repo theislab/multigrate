@@ -19,13 +19,13 @@ urls.Documentation = "https://multigrate.readthedocs.io/"
 urls.Source = "https://github.com/theislab/multigrate"
 urls.Home-page = "https://github.com/theislab/multigrate"
 dependencies = [
-    "anndata<0.11",
+    "anndata>=0.10.0",
     "numpy<2.0",
     # for debug logging (referenced from the issue template)
     "session-info",
     # multigrate specific
     "scanpy",
-    "scvi-tools<1.0.0",
+    "scvi-tools>=1.0.0",
     "jax<0.6",
     "requests",
     "matplotlib",

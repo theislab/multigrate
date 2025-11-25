@@ -8,12 +8,11 @@ from scvi import REGISTRY_KEYS
 from scvi.data import AnnDataManager, fields
 from scvi.data._constants import _MODEL_NAME_KEY, _SETUP_ARGS_KEY
 from scvi.dataloaders import DataSplitter
-from scvi.model._utils import parse_use_gpu_arg
+from scvi.model._utils import parse_device_args
 from scvi.model.base import ArchesMixin, BaseModelClass
 from scvi.model.base._archesmixin import _get_loaded_data
-from scvi.model.base._utils import _initialize_model
-from scvi.train import AdversarialTrainingPlan, TrainRunner
-from scvi.train._callbacks import SaveBestState
+from scvi.model.base._save_load import _initialize_model
+from scvi.train import AdversarialTrainingPlan, TrainRunner, SaveCheckpoint
 
 from multigrate.dataloaders import GroupDataSplitter
 from multigrate.module import MultiVAETorch
@@ -374,7 +373,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         if save_best:
             if "callbacks" not in kwargs.keys():
                 kwargs["callbacks"] = []
-            kwargs["callbacks"].append(SaveBestState(monitor="reconstruction_loss_validation"))
+            kwargs["callbacks"].append(SaveCheckpoint(monitor="reconstruction_loss_validation"))
 
         if save_checkpoint_every_n_epochs is not None:
             if path_to_checkpoints is not None:
@@ -488,12 +487,14 @@ class MultiVAE(BaseModelClass, ArchesMixin):
     # adjusted from scvi-tools
     # https://github.com/scverse/scvi-tools/blob/0b802762869c43c9f49e69fe62b1a5a9b5c4dae6/scvi/model/base/_archesmixin.py#L30
     # accessed on 5 November 2022
+    # Updated for scvi-tools 1.0+ API
     @classmethod
     def load_query_data(
         cls,
         adata: ad.AnnData,
         reference_model: BaseModelClass,
-        use_gpu: str | int | bool | None = None,
+        accelerator: str = "auto",
+        device: int | str = "auto",
         freeze: bool = True,
         ignore_covariates: list[str] | None = None,
     ) -> BaseModelClass:
@@ -507,9 +508,11 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             as AnnData is validated against the ``registry``.
         reference_model
             Already instantiated model of the same class.
-        use_gpu
-            Load model on default GPU if available (if None or True),
-            or index of GPU to use (if int), or name of GPU (if str), or use CPU (if False).
+        accelerator
+            Supports passing different accelerator types ("cpu", "gpu", "tpu", "auto").
+        device
+            The device to use. Can be a string ("auto", "cpu", "cuda"), an integer (GPU index),
+            or "auto" to automatically select.
         freeze
             Whether to freeze the encoders and decoders and only train the new weights.
         ignore_covariates
@@ -519,9 +522,14 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         -------
         Model with updated architecture and weights.
         """
-        _, _, device = parse_use_gpu_arg(use_gpu)
+        _, _, device = parse_device_args(
+            accelerator=accelerator,
+            devices=device,
+            return_device="torch",
+            validate_single_device=True,
+        )
 
-        attr_dict, _, load_state_dict = _get_loaded_data(reference_model, device=device)
+        attr_dict, _, load_state_dict, _ = _get_loaded_data(reference_model, device=device)
 
         registry = attr_dict.pop("registry_")
         if _MODEL_NAME_KEY in registry and registry[_MODEL_NAME_KEY] != cls.__name__:
@@ -541,7 +549,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             **registry[_SETUP_ARGS_KEY],
         )
 
-        model = _initialize_model(cls, adata, attr_dict)
+        model = _initialize_model(cls, adata, registry, attr_dict, datamodule=None)
         adata_manager = model.get_anndata_manager(adata, required=True)
 
         # TODO add an exception if need to add new categories but condition_encoders is False
