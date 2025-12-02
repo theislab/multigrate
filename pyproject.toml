@@ -23,16 +23,16 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "anndata>=0.10.0",
-  "numpy<2.0",
-  # for debug logging (referenced from the issue template)
-  "session-info2",
+  "anndata>=0.10",
+  "jax<0.6",
+  "matplotlib",
+  "numpy<2",
+  "requests",
   # multigrate specific
   "scanpy",
-  "scvi-tools>=1.0.0",
-  "jax<0.6",
-  "requests",
-  "matplotlib",
+  "scvi-tools>=1",
+  # for debug logging (referenced from the issue template)
+  "session-info2",
 ]
 optional-dependencies.dev = [
   "pre-commit",
@@ -60,12 +60,12 @@ optional-dependencies.test = [
   "pytest-cov",     # For VS Code’s coverage functionality
 ]
 optional-dependencies.tutorials = [
-    "muon",
-    "jupyterlab",
-    "ipywidgets",
-    "leidenalg",
-    "igraph",
-    "gdown",
+  "gdown",
+  "igraph",
+  "ipywidgets",
+  "jupyterlab",
+  "leidenalg",
+  "muon",
 ]
 # https://docs.pypi.org/project_metadata/#project-urls
 urls.Documentation = "https://multigrate.readthedocs.io/"
