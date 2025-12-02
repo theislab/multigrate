@@ -28,10 +28,8 @@ dependencies = [
   "matplotlib",
   "numpy<2",
   "requests",
-  # multigrate specific
   "scanpy",
-  "scvi-tools>=1",
-  # for debug logging (referenced from the issue template)
+  "scvi-tools",
   "session-info2",
 ]
 optional-dependencies.dev = [
