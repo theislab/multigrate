@@ -421,6 +421,7 @@ class MultiVAETorch(BaseModuleClass):
         # return mus+mus_joint
         return {
             "z_joint": z_joint,
+            "z": z_joint,  # Alias for compatibility with scvi-tools 1.0+ AdversarialTrainingPlan
             "mu": mu_joint,
             "logvar": logvar_joint,
             "z_marginal": z_marginal,
