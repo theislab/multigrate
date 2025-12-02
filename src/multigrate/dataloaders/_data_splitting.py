@@ -1,0 +1,79 @@
+from scvi.data import AnnDataManager
+from scvi.dataloaders import DataSplitter
+
+from multigrate.dataloaders._ann_dataloader import GroupAnnDataLoader
+
+
+# adjusted from scvi-tools
+# https://github.com/scverse/scvi-tools/blob/0b802762869c43c9f49e69fe62b1a5a9b5c4dae6/scvi/dataloaders/_data_splitting.py#L56
+# accessed on 5 November 2022
+# Updated for scvi-tools 1.0+ API (removed use_gpu parameter)
+class GroupDataSplitter(DataSplitter):
+    """Creates data loaders ``train_set``, ``validation_set``, ``test_set``.
+
+    If ``train_size + validation_set < 1`` then ``test_set`` is non-empty.
+
+    Parameters
+    ----------
+    adata_manager
+        :class:`~scvi.data.AnnDataManager` object that has been created via ``setup_anndata``.
+    train_size
+        Proportion of cells to use  as the train set. Float, or None (default is 0.9).
+    validation_size
+        Proportion of cell to use as the valisation set. Float, or None (default is None). If None, is set to 1 - ``train_size``.
+    kwargs
+        Keyword args for data loader. Data loader class is :class:`~mtg.dataloaders.GroupAnnDataLoader`.
+    """
+
+    def __init__(
+        self,
+        adata_manager: AnnDataManager,
+        group_column: str,
+        train_size: float = 0.9,
+        validation_size: float | None = None,
+        **kwargs,
+    ):
+        self.group_column = group_column
+        super().__init__(adata_manager, train_size, validation_size, **kwargs)
+
+    def train_dataloader(self):
+        """Return data loader for train AnnData."""
+        return GroupAnnDataLoader(
+            self.adata_manager,
+            self.group_column,
+            indices=self.train_idx,
+            shuffle=True,
+            drop_last=True,
+            pin_memory=self.pin_memory,
+            **self.data_loader_kwargs,
+        )
+
+    def val_dataloader(self):
+        """Return data loader for validation AnnData."""
+        if len(self.val_idx) > 0:
+            return GroupAnnDataLoader(
+                self.adata_manager,
+                self.group_column,
+                indices=self.val_idx,
+                shuffle=False,
+                drop_last=True,
+                pin_memory=self.pin_memory,
+                **self.data_loader_kwargs,
+            )
+        else:
+            pass
+
+    def test_dataloader(self):
+        """Return data loader for test AnnData."""
+        if len(self.test_idx) > 0:
+            return GroupAnnDataLoader(
+                self.adata_manager,
+                self.group_column,
+                indices=self.test_idx,
+                shuffle=False,
+                drop_last=True,
+                pin_memory=self.pin_memory,
+                **self.data_loader_kwargs,
+            )
+        else:
+            pass
