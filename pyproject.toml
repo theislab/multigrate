@@ -4,7 +4,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "multigrate"
-version = "0.0.1"
+version = "0.1.0"
 description = "Multimodal weakly supervised learning to identify disease-specific changes in single-cell atlases"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -23,9 +23,16 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "anndata",
+  "anndata>=0.10.0",
+  "numpy<2.0",
   # for debug logging (referenced from the issue template)
   "session-info2",
+  # multigrate specific
+  "scanpy",
+  "scvi-tools>=1.0.0",
+  "jax<0.6",
+  "requests",
+  "matplotlib",
 ]
 optional-dependencies.dev = [
   "pre-commit",
@@ -52,10 +59,18 @@ optional-dependencies.test = [
   "pytest",
   "pytest-cov",     # For VS Code’s coverage functionality
 ]
+optional-dependencies.tutorials = [
+    "muon",
+    "jupyterlab",
+    "ipywidgets",
+    "leidenalg",
+    "igraph",
+    "gdown",
+]
 # https://docs.pypi.org/project_metadata/#project-urls
 urls.Documentation = "https://multigrate.readthedocs.io/"
-urls.Homepage = "https://github.com/alitinet/multigrate"
-urls.Source = "https://github.com/alitinet/multigrate"
+urls.Homepage = "https://github.com/theislab/multigrate"
+urls.Source = "https://github.com/theislab/multigrate"
 
 [tool.hatch.envs.default]
 installer = "uv"
