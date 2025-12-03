@@ -64,6 +64,7 @@ extensions = [
 
 autosummary_generate = True
 autodoc_member_order = "groupwise"
+autodoc_mock_imports = ["torch", "torchvision", "torchaudio"]
 default_role = "literal"
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
