@@ -66,6 +66,7 @@ autosummary_generate = True
 autodoc_member_order = "groupwise"
 autodoc_default_options = {
     "inherited-members": False,
+    "show-inheritance": True,
 }
 default_role = "literal"
 napoleon_google_docstring = False
