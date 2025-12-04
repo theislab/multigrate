@@ -64,7 +64,9 @@ extensions = [
 
 autosummary_generate = True
 autodoc_member_order = "groupwise"
-autodoc_mock_imports = ["torch", "torchvision", "torchaudio"]
+autodoc_default_options = {
+    "inherited-members": False,
+}
 default_role = "literal"
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
@@ -97,6 +99,8 @@ intersphinx_mapping = {
     "anndata": ("https://anndata.readthedocs.io/en/stable/", None),
     "scanpy": ("https://scanpy.readthedocs.io/en/stable/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
+    "torch": ("https://pytorch.org/docs/stable/", None),
+    "scvi": ("https://scvi-tools.readthedocs.io/en/stable/", None),
 }
 
 # List of patterns, relative to source directory, that match files and
@@ -128,5 +132,5 @@ pygments_style = "default"
 nitpick_ignore = [
     # If building the documentation fails because of a missing link that is outside your control,
     # you can add an exception to this list.
-    #     ("py:class", "igraph.Graph"),
+    ("py:class", "torch.FloatTensor"),
 ]
