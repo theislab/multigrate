@@ -29,7 +29,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
     adata
         AnnData object that has been registered via :meth:`~multigrate.model.MultiVAE.setup_anndata`.
     integrate_on
-        One of the categorical covariates refistered with :math:`~multigrate.model.MultiVAE.setup_anndata` to integrate on. The latent space then will be disentangled from this covariate. If `None`, no integration is performed.
+        One of the categorical covariates refistered with :meth:`~multigrate.model.MultiVAE.setup_anndata` to integrate on. The latent space then will be disentangled from this covariate. If `None`, no integration is performed.
     condition_encoders
         Whether to concatentate covariate embeddings to the first layer of the encoders. Default is `False`.
     condition_decoders
@@ -49,7 +49,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
     loss_coefs
         Loss coeficients for the different losses in the model. Default is 1 for all.
     cont_cov_type
-        How to calculate embeddings for continuous covariates. Default is `logsim`.
+        How to calculate embeddings for continuous covariates. Default is `logsigm`.
     n_layers_cont_embed
         Number of layers for the continuous covariate embedding calculation. Default is 1.
     n_layers_encoders
@@ -88,8 +88,8 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         dropout: float = 0.2,
         cond_dim: int = 16,
         kernel_type: Literal["gaussian", None] = "gaussian",
-        loss_coefs: dict[int, float] = None,
-        cont_cov_type: Literal["logsim", "sigm", None] = "logsigm",
+        loss_coefs: dict[int, float] | None = None,
+        cont_cov_type: Literal["logsigm", "sigm", None] = "logsigm",
         n_layers_cont_embed: int = 1,  # TODO default to None?
         n_layers_encoders: list[int] | None = None,
         n_layers_decoders: list[int] | None = None,

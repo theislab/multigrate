@@ -96,7 +96,7 @@ class MultiVAETorch(BaseModuleClass):
         cont_covariate_dims=None,
         cat_covs_idx=None,
         cont_covs_idx=None,
-        cont_cov_type="logsigm",
+        cont_cov_type: Literal["logsigm", "mlp", None] = "logsigm",
         n_layers_cont_embed: int = 1,
         n_layers_encoders=None,
         n_layers_decoders=None,
