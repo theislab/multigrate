@@ -182,7 +182,6 @@ class MultiVAETorch(BaseModuleClass):
         # assume for now that can only use nb/zinb once, i.e. for RNA-seq modality
         # TODO: add check for multiple nb/zinb losses given
         self.theta = []
-        j = []
         for i, loss in enumerate(losses):
             if loss in ["nb", "zinb"]:
                 self.theta.append(torch.nn.Parameter(torch.randn(self.input_dims[i], num_groups)))
