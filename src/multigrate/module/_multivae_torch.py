@@ -181,11 +181,12 @@ class MultiVAETorch(BaseModuleClass):
 
         # assume for now that can only use nb/zinb once, i.e. for RNA-seq modality
         # TODO: add check for multiple nb/zinb losses given
-        self.theta = None
+        self.theta = []
         for i, loss in enumerate(losses):
             if loss in ["nb", "zinb"]:
-                self.theta = torch.nn.Parameter(torch.randn(self.input_dims[i], num_groups))
-                break
+                self.theta.append(torch.nn.Parameter(torch.randn(self.input_dims[i], num_groups)))
+            else:
+                self.theta.append([])
 
         # modality encoders
         cond_dim_enc = cond_dim * (len(cat_covariate_dims) + len(cont_covariate_dims)) if self.condition_encoders else 0
@@ -307,6 +308,7 @@ class MultiVAETorch(BaseModuleClass):
         return x
 
     def _product_of_experts(self, mus, logvars, masks):
+        # print(mus, logvars, masks)
         vars = torch.exp(logvars)
         masks = masks.unsqueeze(-1).repeat(1, 1, vars.shape[-1])
         mus_joint = torch.sum(mus * masks / vars, dim=1)
@@ -658,7 +660,7 @@ class MultiVAETorch(BaseModuleClass):
                 dec_mean = r
                 size_factor_view = size_factor.expand(dec_mean.size(0), dec_mean.size(1))
                 dec_mean = dec_mean * size_factor_view
-                dispersion = self.theta.T[group.squeeze().long()]
+                dispersion = self.theta[i].to(self.device).T[group.squeeze().long()]
                 dispersion = torch.exp(dispersion)
                 nb_loss = torch.sum(NegativeBinomial(mu=dec_mean, theta=dispersion).log_prob(x), dim=-1)
                 nb_loss = loss_coefs[str(i)] * nb_loss
@@ -667,9 +669,9 @@ class MultiVAETorch(BaseModuleClass):
                 dec_mean, dec_dropout = r
                 dec_mean = dec_mean.squeeze()
                 dec_dropout = dec_dropout.squeeze()
-                size_factor_view = size_factor.unsqueeze(1).expand(dec_mean.size(0), dec_mean.size(1))
+                size_factor_view = size_factor.expand(dec_mean.size(0), dec_mean.size(1))
                 dec_mean = dec_mean * size_factor_view
-                dispersion = self.theta.T[group.squeeze().long()]
+                dispersion = self.theta[i].to(self.device).T[group.squeeze().long()]
                 dispersion = torch.exp(dispersion)
                 zinb_loss = torch.sum(
                     ZeroInflatedNegativeBinomial(mu=dec_mean, theta=dispersion, zi_logits=dec_dropout).log_prob(x),
