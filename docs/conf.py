@@ -37,7 +37,7 @@ needs_sphinx = "4.0"
 html_context = {
     "display_github": True,  # Integrate GitHub
     "github_user": "alitinet",
-    "github_repo": "https://github.com/theislab/multigrate",
+    "github_repo": project_name,
     "github_version": "main",
     "conf_py_path": "/docs/",
 }
@@ -55,6 +55,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinxcontrib.bibtex",
     "sphinx_autodoc_typehints",
+    "sphinx_tabs.tabs",
     "sphinx.ext.mathjax",
     "IPython.sphinxext.ipython_console_highlighting",
     "sphinxext.opengraph",
@@ -63,6 +64,10 @@ extensions = [
 
 autosummary_generate = True
 autodoc_member_order = "groupwise"
+autodoc_default_options = {
+    "inherited-members": False,
+    "show-inheritance": True,
+}
 default_role = "literal"
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
@@ -93,7 +98,10 @@ source_suffix = {
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "anndata": ("https://anndata.readthedocs.io/en/stable/", None),
+    "scanpy": ("https://scanpy.readthedocs.io/en/stable/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
+    "torch": ("https://pytorch.org/docs/stable/", None),
+    "scvi": ("https://scvi-tools.readthedocs.io/en/stable/", None),
 }
 
 # List of patterns, relative to source directory, that match files and
@@ -125,5 +133,5 @@ pygments_style = "default"
 nitpick_ignore = [
     # If building the documentation fails because of a missing link that is outside your control,
     # you can add an exception to this list.
-    #     ("py:class", "igraph.Graph"),
+    ("py:class", "torch.FloatTensor"),
 ]

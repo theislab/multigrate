@@ -54,9 +54,7 @@ If you found a bug, please use the [issue tracker][issue-tracker].
 
 ## Citation
 
-> **Multigrate: Single-Cell Multi-Omic Data Integration**
->
-> Mohammad Lotfollahi, Anastasia Litinetskaya, and Fabian J. Theis. 2022. 2024. bioRxiv. [https://doi.org/10.1101/2022.03.16.484643][https://doi.org/10.1101/2022.03.16.484643].
+> Anastasia Litinetskaya, Maiia Schulman, Fabiola Curion, Artur Szalata, Alireza Omidi, Mohammad Lotfollahi, and Fabian Theis. 2022. "Integration and querying of multimodal single-cell data with PoE-VAE." _bioRxiv_. https://doi.org/10.1101/2022.03.16.484643.
 
 ## Reproducibility
 

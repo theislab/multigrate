@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose a new feature for multimil
+description: Propose a new feature for multigrate
 labels: enhancement
 body:
   - type: textarea

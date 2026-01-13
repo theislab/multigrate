@@ -3,17 +3,15 @@ from typing import Literal
 
 import anndata as ad
 import torch
-from pytorch_lightning.callbacks import ModelCheckpoint
 from scvi import REGISTRY_KEYS
 from scvi.data import AnnDataManager, fields
 from scvi.data._constants import _MODEL_NAME_KEY, _SETUP_ARGS_KEY
 from scvi.dataloaders import DataSplitter
-from scvi.model._utils import parse_use_gpu_arg
+from scvi.model._utils import parse_device_args
 from scvi.model.base import ArchesMixin, BaseModelClass
 from scvi.model.base._archesmixin import _get_loaded_data
-from scvi.model.base._utils import _initialize_model
+from scvi.model.base._save_load import _initialize_model
 from scvi.train import AdversarialTrainingPlan, TrainRunner
-from scvi.train._callbacks import SaveBestState
 
 from multigrate.dataloaders import GroupDataSplitter
 from multigrate.module import MultiVAETorch
@@ -30,7 +28,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
     adata
         AnnData object that has been registered via :meth:`~multigrate.model.MultiVAE.setup_anndata`.
     integrate_on
-        One of the categorical covariates refistered with :math:`~multigrate.model.MultiVAE.setup_anndata` to integrate on. The latent space then will be disentangled from this covariate. If `None`, no integration is performed.
+        One of the categorical covariates refistered with :meth:`~multigrate.model.MultiVAE.setup_anndata` to integrate on. The latent space then will be disentangled from this covariate. If `None`, no integration is performed.
     condition_encoders
         Whether to concatentate covariate embeddings to the first layer of the encoders. Default is `False`.
     condition_decoders
@@ -50,7 +48,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
     loss_coefs
         Loss coeficients for the different losses in the model. Default is 1 for all.
     cont_cov_type
-        How to calculate embeddings for continuous covariates. Default is `logsim`.
+        How to calculate embeddings for continuous covariates. Default is `logsigm`.
     n_layers_cont_embed
         Number of layers for the continuous covariate embedding calculation. Default is 1.
     n_layers_encoders
@@ -89,8 +87,8 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         dropout: float = 0.2,
         cond_dim: int = 16,
         kernel_type: Literal["gaussian", None] = "gaussian",
-        loss_coefs: dict[int, float] = None,
-        cont_cov_type: Literal["logsim", "sigm", None] = "logsigm",
+        loss_coefs: dict[int, float] | None = None,
+        cont_cov_type: Literal["logsigm", "sigm", None] = "logsigm",
         n_layers_cont_embed: int = 1,  # TODO default to None?
         n_layers_encoders: list[int] | None = None,
         n_layers_decoders: list[int] | None = None,
@@ -284,15 +282,16 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         self,
         max_epochs: int = 200,
         lr: float = 5e-4,
-        use_gpu: str | int | bool | None = None,
+        accelerator: str = "auto",
+        devices: int | list[int] | str = "auto",
         train_size: float = 0.9,
         validation_size: float | None = None,
         batch_size: int = 256,
         weight_decay: float = 1e-3,
         eps: float = 1e-08,
         early_stopping: bool = True,
-        early_stopping_patience=50,
-        save_best: bool = True,
+        early_stopping_patience: int = 10,
+        # save_best: bool = True,
         check_val_every_n_epoch: int | None = None,
         n_epochs_kl_warmup: int | None = None,
         n_steps_kl_warmup: int | None = None,
@@ -310,9 +309,12 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             Number of passes through the dataset.
         lr
             Learning rate for optimization.
-        use_gpu
-            Use default GPU if available (if None or True), or index of GPU to use (if int),
-            or name of GPU (if str), or use CPU (if False).
+        accelerator
+            Supports passing different accelerator types ("cpu", "gpu", "tpu", "auto").
+        devices
+            The device(s) to use. Can be set to a non-negative index (int or str),
+            a sequence of device indices (list or comma-separated str), the value -1
+            to indicate all available devices, or "auto" for automatic selection.
         train_size
             Size of training set in the range [0.0, 1.0].
         validation_size
@@ -326,9 +328,6 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             Optimizer eps.
         early_stopping
             Whether to perform early stopping with respect to the validation set.
-        save_best
-            Save the best model state with respect to the validation loss, or use the final
-            state in the training procedure.
         check_val_every_n_epoch
             Check val every n train epochs. By default, val is not checked, unless `early_stopping` is `True`.
             If so, val is checked every epoch.
@@ -372,26 +371,26 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         else:
             plan_kwargs = update_dict
 
-        if save_best:
-            if "callbacks" not in kwargs.keys():
-                kwargs["callbacks"] = []
-            kwargs["callbacks"].append(SaveBestState(monitor="reconstruction_loss_validation"))
+        # if save_best:
+        #     if "callbacks" not in kwargs.keys():
+        #         kwargs["callbacks"] = []
+        #     kwargs["callbacks"].append(SaveCheckpoint(monitor="reconstruction_loss_validation"))
 
-        if save_checkpoint_every_n_epochs is not None:
-            if path_to_checkpoints is not None:
-                kwargs["callbacks"].append(
-                    ModelCheckpoint(
-                        dirpath=path_to_checkpoints,
-                        save_top_k=-1,
-                        monitor="epoch",
-                        every_n_epochs=save_checkpoint_every_n_epochs,
-                        verbose=True,
-                    )
-                )
-            else:
-                raise ValueError(
-                    f"`save_checkpoint_every_n_epochs` = {save_checkpoint_every_n_epochs} so `path_to_checkpoints` has to be not None but is {path_to_checkpoints}."
-                )
+        # if save_checkpoint_every_n_epochs is not None:
+        #     if path_to_checkpoints is not None:
+        #         kwargs["callbacks"].append(
+        #             ModelCheckpoint(
+        #                 dirpath=path_to_checkpoints,
+        #                 save_top_k=-1,
+        #                 monitor="epoch",
+        #                 every_n_epochs=save_checkpoint_every_n_epochs,
+        #                 verbose=True,
+        #             )
+        #         )
+        #     else:
+        #         raise ValueError(
+        #             f"`save_checkpoint_every_n_epochs` = {save_checkpoint_every_n_epochs} so `path_to_checkpoints` has to be not None but is {path_to_checkpoints}."
+        #         )
 
         if self.group_column is not None:
             data_splitter = GroupDataSplitter(
@@ -400,7 +399,6 @@ class MultiVAE(BaseModelClass, ArchesMixin):
                 train_size=train_size,
                 validation_size=validation_size,
                 batch_size=batch_size,
-                use_gpu=use_gpu,
             )
         else:
             data_splitter = DataSplitter(
@@ -408,20 +406,22 @@ class MultiVAE(BaseModelClass, ArchesMixin):
                 train_size=train_size,
                 validation_size=validation_size,
                 batch_size=batch_size,
-                use_gpu=use_gpu,
             )
         training_plan = AdversarialTrainingPlan(self.module, **plan_kwargs)
+        # # Allow enable_checkpointing to be overridden via kwargs
+        # enable_checkpointing = kwargs.pop("enable_checkpointing", True)
         runner = TrainRunner(
             self,
             training_plan=training_plan,
             data_splitter=data_splitter,
             max_epochs=max_epochs,
-            use_gpu=use_gpu,
+            accelerator=accelerator,
+            devices=devices,
             early_stopping=early_stopping,
             check_val_every_n_epoch=check_val_every_n_epoch,
             early_stopping_monitor="reconstruction_loss_validation",
             early_stopping_patience=early_stopping_patience,
-            enable_checkpointing=True,
+            # enable_checkpointing=enable_checkpointing,
             **kwargs,
         )
         return runner()
@@ -489,12 +489,14 @@ class MultiVAE(BaseModelClass, ArchesMixin):
     # adjusted from scvi-tools
     # https://github.com/scverse/scvi-tools/blob/0b802762869c43c9f49e69fe62b1a5a9b5c4dae6/scvi/model/base/_archesmixin.py#L30
     # accessed on 5 November 2022
+    # Updated for scvi-tools 1.0+ API
     @classmethod
     def load_query_data(
         cls,
         adata: ad.AnnData,
         reference_model: BaseModelClass,
-        use_gpu: str | int | bool | None = None,
+        accelerator: str = "auto",
+        device: int | str = "auto",
         freeze: bool = True,
         ignore_covariates: list[str] | None = None,
     ) -> BaseModelClass:
@@ -508,9 +510,11 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             as AnnData is validated against the ``registry``.
         reference_model
             Already instantiated model of the same class.
-        use_gpu
-            Load model on default GPU if available (if None or True),
-            or index of GPU to use (if int), or name of GPU (if str), or use CPU (if False).
+        accelerator
+            Supports passing different accelerator types ("cpu", "gpu", "tpu", "auto").
+        device
+            The device to use. Can be a string ("auto", "cpu", "cuda"), an integer (GPU index),
+            or "auto" to automatically select.
         freeze
             Whether to freeze the encoders and decoders and only train the new weights.
         ignore_covariates
@@ -520,16 +524,21 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         -------
         Model with updated architecture and weights.
         """
-        _, _, device = parse_use_gpu_arg(use_gpu)
+        _, _, device = parse_device_args(
+            accelerator=accelerator,
+            devices=device,
+            return_device="torch",
+            validate_single_device=True,
+        )
 
-        attr_dict, _, load_state_dict = _get_loaded_data(reference_model, device=device)
+        attr_dict, _, load_state_dict, _ = _get_loaded_data(reference_model, device=device)
 
         registry = attr_dict.pop("registry_")
         if _MODEL_NAME_KEY in registry and registry[_MODEL_NAME_KEY] != cls.__name__:
             raise ValueError("It appears you are loading a model from a different class.")
 
         if _SETUP_ARGS_KEY not in registry:
-            raise ValueError("Saved model does not contain original setup inputs. " "Cannot load the original setup.")
+            raise ValueError("Saved model does not contain original setup inputs. Cannot load the original setup.")
 
         if ignore_covariates is None:
             ignore_covariates = []
@@ -542,7 +551,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             **registry[_SETUP_ARGS_KEY],
         )
 
-        model = _initialize_model(cls, adata, attr_dict)
+        model = _initialize_model(cls, adata, registry, attr_dict, datamodule=None)
         adata_manager = model.get_anndata_manager(adata, required=True)
 
         # TODO add an exception if need to add new categories but condition_encoders is False

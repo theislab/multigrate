@@ -22,6 +22,4 @@
     :toctree: generated
 
     module.MultiVAETorch
-    module.MILClassifierTorch
-    module.MultiVAETorch_MIL
 ```
