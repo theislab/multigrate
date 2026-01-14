@@ -23,7 +23,7 @@ class MLP(nn.Module):
     normalization
         Type of normalization to use. Can be one of ["layer", "batch", "none"].
     activation
-        Activation function to use.
+        Activation function to use. Can be one of ["leaky_relu", "tanh"].
 
     """
 
@@ -35,16 +35,25 @@ class MLP(nn.Module):
         n_hidden: int = 128,
         dropout_rate: float = 0.1,
         normalization: str = "layer",
-        activation=nn.LeakyReLU,
+        activation: nn.Module = nn.LeakyReLU,
     ):
         super().__init__()
-        use_layer_norm = False
-        use_batch_norm = True
-        if normalization == "layer":
-            use_layer_norm = True
-            use_batch_norm = False
-        elif normalization == "none":
-            use_batch_norm = False
+
+        if n_input <= 0 or n_output <= 0:
+            raise ValueError("`n_input` and `n_output` must be positive.")
+        if n_layers < 0:
+            raise ValueError("`n_layers` must be >= 0.")
+        if n_hidden <= 0:
+            raise ValueError("`n_hidden` must be positive.")
+        if not (0.0 <= dropout_rate <= 1.0):
+            raise ValueError("`dropout_rate` must be in [0, 1].")
+
+        if normalization not in {"layer", "batch", "none"}:
+            raise ValueError("`normalization` must be one of {'layer', 'batch', 'none'}.")
+
+        # if none, both are False
+        use_layer_norm = normalization == "layer"
+        use_batch_norm = normalization == "batch"
 
         self.mlp = FCLayers(
             n_in=n_input,
@@ -63,11 +72,11 @@ class MLP(nn.Module):
         Parameters
         ----------
         x
-            Tensor of values with shape ``(n_input,)``.
+            Tensor of values with shape ``(batch_size, n_input)``.
 
         Returns
         -------
-        Tensor of values with shape ``(n_output,)``.
+        Tensor of values with shape ``(batch_size, n_output)``.
         """
         return self.mlp(x)
 
@@ -90,7 +99,7 @@ class Decoder(nn.Module):
     normalization
         Type of normalization to use. Can be one of ["layer", "batch", "none"].
     activation
-        Activation function to use.
+        Activation function to use. Can be one of ["leaky_relu", "tanh"].
     loss
         Loss function to use. Can be one of ["mse", "nb", "zinb", "bce"].
     """
@@ -103,13 +112,22 @@ class Decoder(nn.Module):
         n_hidden: int = 128,
         dropout_rate: float = 0.1,
         normalization: str = "layer",
-        activation=nn.LeakyReLU,
-        loss="mse",
+        activation: nn.Module = nn.LeakyReLU,
+        loss: str = "mse",
     ):
         super().__init__()
 
+        if n_input <= 0 or n_output <= 0:
+            raise ValueError("`n_input` and `n_output` must be positive.")
+        if n_layers < 0:
+            raise ValueError("`n_layers` must be >= 0.")
+        if n_hidden <= 0:
+            raise ValueError("`n_hidden` must be positive.")
+        if not (0.0 <= dropout_rate <= 1.0):
+            raise ValueError("`dropout_rate` must be in [0, 1].")
+
         if loss not in ["mse", "nb", "zinb", "bce"]:
-            raise NotImplementedError(f"Loss function {loss} is not implemented.")
+            raise ValueError("`loss` must be one of {'mse', 'nb', 'zinb', 'bce'}.")
         else:
             self.loss = loss
 
@@ -142,17 +160,33 @@ class Decoder(nn.Module):
                 activation_fn=nn.Sigmoid,
             )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """Forward computation on ``x``.
 
         Parameters
         ----------
         x
-            Tensor of values with shape ``(n_input,)``.
+            Tensor of values with shape ``(batch_size, n_input)``.
 
         Returns
         -------
-        Tensor of values with shape ``(n_output,)``.
+        If ``loss == "mse"``:
+            torch.Tensor
+                Reconstructed values with shape ``(batch_size, n_output)``.
+
+        If ``loss == "bce"``:
+            torch.Tensor
+                Bernoulli probabilities with shape ``(batch_size, n_output)``.
+
+        If ``loss == "nb"``:
+            torch.Tensor
+                Mean parameter of the Negative Binomial distribution with shape
+                ``(batch_size, n_output)``.
+
+        If ``loss == "zinb"``:
+            Tuple[torch.Tensor, torch.Tensor]
+                * Mean parameter of the ZINB distribution with shape ``(batch_size, n_output)``
+                * Dropout logits with shape ``(batch_size, n_output)``
         """
         x = self.decoder(x)
         if self.loss == "mse" or self.loss == "bce":
@@ -177,16 +211,20 @@ class GeneralizedSigmoid(nn.Module):
     dim
         Number of input features.
     nonlin
-        Type of non-linearity to use. Can be one of ["logsigm", "sigm"]. Default is "logsigm".
+        Type of non-linearity to use. Can be one of ["logsigm", "sigm", None]. Default is "logsigm".
     """
 
-    def __init__(self, dim, nonlin: Literal["logsigm", "sigm"] | None = "logsigm"):
+    def __init__(self, dim: int, nonlin: Literal["logsigm", "sigm"] | None = "logsigm"):
         super().__init__()
+        if dim <= 0:
+            raise ValueError("`dim` must be positive.")
+        if nonlin not in {"logsigm", "sigm", None}:
+            raise ValueError("`nonlin` must be one of {'logsigm', 'sigm', None}.")
         self.nonlin = nonlin
         self.beta = torch.nn.Parameter(torch.ones(1, dim), requires_grad=True)
         self.bias = torch.nn.Parameter(torch.zeros(1, dim), requires_grad=True)
 
-    def forward(self, x) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward computation on ``x``.
 
         Parameters

@@ -14,8 +14,9 @@ class MMD(torch.nn.Module):
 
     def __init__(self, kernel_type="gaussian"):
         super().__init__()
+        if kernel_type not in {"gaussian", "not gaussian"}:
+            raise ValueError("`kernel_type` must be one of {'gaussian', 'not gaussian'}.")
         self.kernel_type = kernel_type
-        # TODO: add check for gaussian kernel that shapes are same
 
     def gaussian_kernel(
         self,
@@ -38,7 +39,12 @@ class MMD(torch.nn.Module):
         -------
         Gaussian kernel between ``x`` and ``y``.
         """
-        if gamma is None:
+        if gamma is not None:
+            if len(gamma) == 0:
+                raise ValueError("`gamma` must be a non-empty list of floats.")
+            if any(g <= 0 for g in gamma):
+                raise ValueError("All entries in `gamma` must be positive.")
+        else:
             gamma = [
                 1e-6,
                 1e-5,
@@ -90,9 +96,17 @@ class MMD(torch.nn.Module):
         -------
         MMD between ``x`` and ``y``.
         """
+        if len(x) == 0 or len(y) == 0:
+            raise ValueError("`x` and `y` must have at least one sample.")
+
+        if x.ndim != 2 or y.ndim != 2:
+            raise ValueError("`x` and `y` must be 2D tensors of shape (batch, dim).")
+        if x.shape[1] != y.shape[1]:
+            raise ValueError(f"Feature dimension mismatch: x has {x.shape[1]}, y has {y.shape[1]}.")
+
         # in case there is only one sample in a batch belonging to one of the groups, then skip the batch
         if len(x) == 1 or len(y) == 1:
-            return torch.tensor(0.0)
+            return torch.zeros((), device=x.device, dtype=x.dtype)
 
         if self.kernel_type == "gaussian":
             Kxx = self.gaussian_kernel(x, x).mean()

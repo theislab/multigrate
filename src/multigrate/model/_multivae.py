@@ -141,9 +141,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
                     integrate_on
                 )
 
-        self.modality_lengths = [
-            adata.uns["modality_lengths"][key] for key in sorted(adata.uns["modality_lengths"].keys())
-        ]
+        self.modality_lengths = adata.uns["modality_lengths"]
 
         self.cont_covs_idx = []
         self.cont_covariate_dims = []
