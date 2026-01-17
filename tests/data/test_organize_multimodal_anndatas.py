@@ -1,7 +1,6 @@
-import numpy as np
-import pandas as pd
-import pytest
 import anndata as ad
+import numpy as np
+import pytest
 
 from multigrate.data._preprocessing import organize_multimodal_anndatas
 
@@ -28,8 +27,8 @@ def test_basic_concat_with_missing_modality_filled_with_zeros():
 
     out = organize_multimodal_anndatas(
         adatas=[
-            [m0_g0, m0_g1],   # modality 0
-            [m1_g0, m1_g1],   # modality 1
+            [m0_g0, m0_g1],  # modality 0
+            [m1_g0, m1_g1],  # modality 1
         ],
         layers=None,
     )

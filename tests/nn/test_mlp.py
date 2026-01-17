@@ -14,7 +14,7 @@ def _count_modules(model: nn.Module, cls: type[nn.Module]) -> int:
     [
         ("layer", True, False),
         ("batch", False, True),
-        ("none", False, False),
+        (None, False, False),
     ],
 )
 def test_mlp_normalization_wiring(normalization, expect_layer_norm, expect_batch_norm):
@@ -43,7 +43,7 @@ def test_mlp_contains_requested_activation_modules(activation_cls):
         n_layers=2,
         n_hidden=8,
         dropout_rate=0.0,
-        normalization="none",
+        normalization=None,
         activation=activation_cls,
     )
 
@@ -89,7 +89,7 @@ def test_mlp_dropout_modules_present_when_dropout_rate_positive():
         n_layers=2,
         n_hidden=16,
         dropout_rate=0.2,
-        normalization="none",
+        normalization=None,
         activation=nn.ReLU,
     )
     n_do = _count_modules(mlp, nn.Dropout)
@@ -103,7 +103,7 @@ def test_mlp_dropout_modules_absent_when_dropout_rate_zero():
         n_layers=2,
         n_hidden=16,
         dropout_rate=0.0,
-        normalization="none",
+        normalization=None,
         activation=nn.ReLU,
     )
     n_do = _count_modules(mlp, nn.Dropout)

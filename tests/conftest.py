@@ -1,12 +1,14 @@
 # tests/conftest.py
+import anndata as ad
 import numpy as np
 import pandas as pd
 import pytest
-import anndata as ad
+
 
 @pytest.fixture(scope="session")
 def rng():
     return np.random.default_rng(0)
+
 
 @pytest.fixture
 def tiny_multimodal_adata(rng):

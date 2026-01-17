@@ -92,7 +92,7 @@ def test_forward_feature_dim_mismatch_raises():
 
 def test_forward_requires_2d_inputs():
     mmd = MMD(kernel_type="gaussian")
-    x = torch.randn(3)      # 1D
+    x = torch.randn(3)  # 1D
     y = torch.randn(3, 2)
 
     with pytest.raises(ValueError, match="must be 2D"):

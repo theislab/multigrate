@@ -59,7 +59,7 @@ def test_decoder_bce_output_in_unit_interval():
         n_layers=1,
         n_hidden=9,
         dropout_rate=0.0,
-        normalization="none",
+        normalization=None,
         activation=nn.ReLU,
         loss="bce",
     )
@@ -92,7 +92,7 @@ def test_decoder_backward_pass(loss):
     if loss == "zinb":
         mean, dropout = out
         # Any scalar function will do; we just want backward to work.
-        loss_val = (mean.pow(2).mean() + dropout.pow(2).mean())
+        loss_val = mean.pow(2).mean() + dropout.pow(2).mean()
     else:
         loss_val = out.pow(2).mean()
 
@@ -106,3 +106,8 @@ def test_decoder_backward_pass(loss):
 def test_decoder_invalid_loss_raises():
     with pytest.raises(ValueError, match=r"`loss` must be one of {'mse', 'nb', 'zinb', 'bce'}."):
         _ = Decoder(n_input=4, n_output=5, loss="not_a_loss")
+
+
+def test_decoder_invalid_normalization_raises():
+    with pytest.raises(ValueError, match=r"`normalization` must be one of {'layer', 'batch', None}."):
+        _ = Decoder(n_input=4, n_output=5, normalization="invalid_norm")
