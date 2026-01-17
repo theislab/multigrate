@@ -12,5 +12,6 @@ and this project adheres to [Semantic Versioning][].
 
 ### Added
 
-- support for scvi-tools >= 1.0 (#37)
-- support for multiple NB lossed (#34)
+- support for scvi-tools >= 1.0 ([#37](https://github.com/theislab/multigrate/pull/37))
+- support for multiple NB lossed ([#34](https://github.com/theislab/multigrate/pull/34))
+- tests
