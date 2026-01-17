@@ -35,8 +35,8 @@ class MultiVAETorch(BaseModuleClass):
         List of which losses to use. For each modality can be one of the following:
         * ``'mse'`` - mean squared error
         * ``'nb'`` - negative binomial
-        * ``zinb`` - zero-inflated negative binomial
-        * ``bce`` - binary cross-entropy.
+        * ``'zinb'`` - zero-inflated negative binomial
+        * ``'bce'`` - binary cross-entropy.
     dropout
         Dropout rate for neural networks.
     cond_dim
@@ -57,7 +57,7 @@ class MultiVAETorch(BaseModuleClass):
         List of 1's for each of the continuous covariate.
     cont_cov_type
         How to transform continuous covariate before multiplying with the embedding. One of the following:
-        * ``'logsim'`` - generalized sigmoid
+        * ``'logsigm'`` - generalized sigmoid
         * ``'mlp'`` - MLP.
     n_layers_cont_embed
         Number of layers for the transformation of the continuous covariates before multiplying with the embedding.
@@ -71,11 +71,29 @@ class MultiVAETorch(BaseModuleClass):
         Number of nodes in hidden layers in encoders.
     n_hidden_decoders
         Number of nodes in hidden layers in decoders.
+    modality_alignment
+        How to perform modality alignment. One of the following:
+        * ``'MMD'`` - Maximum Mean Discrepancy
+        * ``'Jeffreys'`` - Jeffreys Divergence
+        * ``None`` - no modality alignment.
     alignment_type
-        How to calculate integration loss. One of the following
+        How to calculate integration loss. One of the following:
         * ``'latent'`` - only on the latent representations
         * ``'marginal'`` - only on the marginal representations
-        * ``both`` - the sum of the two above.
+        * ``'both'`` - the sum of the two above.
+    activation
+        Activation function to use. One of the following:
+        * ``'leaky_relu'`` - Leaky ReLU
+        * ``'tanh'`` - Tanh.
+    initialization
+        Weight initialization strategy. One of the following:
+        * ``'xavier'`` - Xavier initialization
+        * ``'kaiming'`` - Kaiming initialization
+        * ``None`` - no initialization.
+    mix
+        How to combine modalities in the joint latent space. One of the following:
+        * ``'product'`` - product of experts
+        * ``'mixture'`` - mixture of experts.
     """
 
     def __init__(
@@ -83,7 +101,7 @@ class MultiVAETorch(BaseModuleClass):
         modality_lengths,
         condition_encoders=False,
         condition_decoders=True,
-        normalization: Literal["layer", "batch", None] = "layer",
+        normalization: Literal["layer", "batch"] | None = "layer",
         z_dim=16,
         losses=None,
         dropout=0.2,
@@ -96,7 +114,7 @@ class MultiVAETorch(BaseModuleClass):
         cont_covariate_dims=None,
         cat_covs_idx=None,
         cont_covs_idx=None,
-        cont_cov_type: Literal["logsigm", "mlp", None] = "logsigm",
+        cont_cov_type: Literal["logsigm", "mlp"] | None = "logsigm",
         n_layers_cont_embed: int = 1,
         n_layers_encoders=None,
         n_layers_decoders=None,
@@ -110,6 +128,29 @@ class MultiVAETorch(BaseModuleClass):
         mix="product",
     ):
         super().__init__()
+
+        if mix not in ["product", "mixture"]:
+            raise ValueError(f"mix should be one of ['product', 'mixture'], but mix={mix} was passed.")
+        if alignment_type not in ["latent", "marginal", "both"]:
+            raise ValueError(
+                f"alignment_type should be one of ['latent', 'marginal', 'both'], but alignment_type={alignment_type} was passed."
+            )
+        if modality_alignment not in ["MMD", "Jeffreys", None]:
+            raise ValueError(
+                f"modality_alignment should be one of ['MMD', 'Jeffreys', None], but modality_alignment={modality_alignment} was passed."
+            )
+        if activation == "leaky_relu":
+            self.activation = nn.LeakyReLU
+        elif activation == "tanh":
+            self.activation = nn.Tanh
+        else:
+            raise NotImplementedError(
+                f'activation should be one of ["leaky_relu", "tanh"], but activation={activation} was passed.'
+            )
+        if cat_covariate_dims is None:
+            raise ValueError("cat_covariate_dims = None was passed.")
+        if cont_covariate_dims is None:
+            raise ValueError("cont_covariate_dims = None was passed.")
 
         self.input_dims = modality_lengths
         self.condition_encoders = condition_encoders
@@ -125,7 +166,6 @@ class MultiVAETorch(BaseModuleClass):
         self.z_dim = z_dim
         self.dropout = dropout
         self.cond_dim = cond_dim
-        self.kernel_type = kernel_type
         self.n_layers_cont_embed = n_layers_cont_embed
         self.n_layers_encoders = n_layers_encoders
         self.n_layers_decoders = n_layers_decoders
@@ -136,15 +176,6 @@ class MultiVAETorch(BaseModuleClass):
         self.cont_covs_idx = cont_covs_idx
         self.mix = mix
 
-        if activation == "leaky_relu":
-            self.activation = nn.LeakyReLU
-        elif activation == "tanh":
-            self.activation = nn.Tanh
-        else:
-            raise NotImplementedError(
-                f'activation should be one of ["leaky_relu", "tanh"], but activation={activation} was passed.'
-            )
-
         # TODO: add warnings that mse is used
         if losses is None:
             self.losses = ["mse"] * self.n_modality
@@ -154,10 +185,6 @@ class MultiVAETorch(BaseModuleClass):
             raise ValueError(
                 f"losses has to be the same length as the number of modalities. number of modalities = {self.n_modality} != {len(losses)} = len(losses)"
             )
-        if cat_covariate_dims is None:
-            raise ValueError("cat_covariate_dims = None was passed.")
-        if cont_covariate_dims is None:
-            raise ValueError("cont_covariate_dims = None was passed.")
 
         # TODO: add warning that using these
         if self.n_layers_encoders is None:
@@ -179,55 +206,70 @@ class MultiVAETorch(BaseModuleClass):
         if loss_coefs is not None:
             self.loss_coefs.update(loss_coefs)
 
-        # assume for now that can only use nb/zinb once, i.e. for RNA-seq modality
-        # TODO: add check for multiple nb/zinb losses given
-        self.theta = []
-        for i, loss in enumerate(losses):
+        self.theta = nn.ParameterList()
+        for i, loss in enumerate(self.losses):
             if loss in ["nb", "zinb"]:
                 self.theta.append(torch.nn.Parameter(torch.randn(self.input_dims[i], num_groups)))
             else:
-                self.theta.append([])
+                self.theta.append(nn.Parameter(torch.empty(0), requires_grad=False))
+
+        n = self.n_modality
+        if len(self.n_layers_encoders) != n or len(self.n_hidden_encoders) != n:
+            raise ValueError(
+                "Length of input_dims, n_layers_encoders and n_hidden_encoders must be the same. "
+                f"Got {len(self.input_dims)}, {len(self.n_layers_encoders)} and {len(self.n_hidden_encoders)}."
+            )
+
+        if len(self.n_layers_decoders) != n or len(self.n_hidden_decoders) != n:
+            raise ValueError(
+                "Length of input_dims, n_layers_decoders and n_hidden_decoders must be the same. "
+                f"Got {len(self.input_dims)}, {len(self.n_layers_decoders)} and {len(self.n_hidden_decoders)}."
+            )
 
         # modality encoders
         cond_dim_enc = cond_dim * (len(cat_covariate_dims) + len(cont_covariate_dims)) if self.condition_encoders else 0
-        self.encoders = [
-            MLP(
-                n_input=x_dim + cond_dim_enc,
-                n_output=z_dim,
-                n_layers=n_layers,
-                n_hidden=n_hidden,
-                dropout_rate=dropout,
-                normalization=normalization,
-                activation=self.activation,
-            )
-            for x_dim, n_layers, n_hidden in zip(
-                self.input_dims, self.n_layers_encoders, self.n_hidden_encoders, strict=False
-            )
-        ]
+        self.encoders = nn.ModuleList(
+            [
+                MLP(
+                    n_input=x_dim + cond_dim_enc,
+                    n_output=z_dim,
+                    n_layers=n_layers,
+                    n_hidden=n_hidden,
+                    dropout_rate=dropout,
+                    normalization=normalization,
+                    activation=self.activation,
+                )
+                for x_dim, n_layers, n_hidden in zip(
+                    self.input_dims, self.n_layers_encoders, self.n_hidden_encoders, strict=False
+                )
+            ]
+        )
 
         # modality decoders
         cond_dim_dec = cond_dim * (len(cat_covariate_dims) + len(cont_covariate_dims)) if self.condition_decoders else 0
         dec_input = z_dim
-        self.decoders = [
-            Decoder(
-                n_input=dec_input + cond_dim_dec,
-                n_output=x_dim,
-                n_layers=n_layers,
-                n_hidden=n_hidden,
-                dropout_rate=dropout,
-                normalization=normalization,
-                activation=self.activation,
-                loss=loss,
-            )
-            for x_dim, loss, n_layers, n_hidden in zip(
-                self.input_dims, self.losses, self.n_layers_decoders, self.n_hidden_decoders, strict=False
-            )
-        ]
+        self.decoders = nn.ModuleList(
+            [
+                Decoder(
+                    n_input=dec_input + cond_dim_dec,
+                    n_output=x_dim,
+                    n_layers=n_layers,
+                    n_hidden=n_hidden,
+                    dropout_rate=dropout,
+                    normalization=normalization,
+                    activation=self.activation,
+                    loss=loss,
+                )
+                for x_dim, loss, n_layers, n_hidden in zip(
+                    self.input_dims, self.losses, self.n_layers_decoders, self.n_hidden_decoders, strict=False
+                )
+            ]
+        )
 
-        self.mus = [nn.Linear(z_dim, z_dim) for _ in self.input_dims]
-        self.logvars = [nn.Linear(z_dim, z_dim) for _ in self.input_dims]
+        self.mus = nn.ModuleList([nn.Linear(z_dim, z_dim) for _ in self.input_dims])
+        self.logvars = nn.ModuleList([nn.Linear(z_dim, z_dim) for _ in self.input_dims])
 
-        self.cat_covariate_embeddings = [nn.Embedding(dim, cond_dim) for dim in cat_covariate_dims]
+        self.cat_covariate_embeddings = nn.ModuleList([nn.Embedding(dim, cond_dim) for dim in cat_covariate_dims])
         if self.n_cont_cov > 0:
             self.cont_covariate_embeddings = nn.Embedding(self.n_cont_cov, cond_dim)
             if self.cont_cov_type == "mlp":
@@ -256,17 +298,11 @@ class MultiVAETorch(BaseModuleClass):
                     nonlin=self.cont_cov_type,
                 )
 
-        # register sub-modules
-        for i, (enc, dec, mu, logvar) in enumerate(
-            zip(self.encoders, self.decoders, self.mus, self.logvars, strict=False)
-        ):
-            self.add_module(f"encoder_{i}", enc)
-            self.add_module(f"decoder_{i}", dec)
-            self.add_module(f"mu_{i}", mu)
-            self.add_module(f"logvar_{i}", logvar)
-
-        for i, emb in enumerate(self.cat_covariate_embeddings):
-            self.add_module(f"cat_covariate_embedding_{i}", emb)
+        if len(self.encoders) != n or len(self.decoders) != n or len(self.mus) != n or len(self.logvars) != n:
+            raise ValueError(
+                "Lengths of lists of encoders, decoders, mus and logvars must be the same and equal to the number of modalities. "
+                f"Got {len(self.encoders)}, {len(self.decoders)}, {len(self.mus)} and {len(self.logvars)}."
+            )
 
         if initialization is not None:
             if initialization == "xavier":
@@ -312,8 +348,8 @@ class MultiVAETorch(BaseModuleClass):
         vars = torch.exp(logvars)
         masks = masks.unsqueeze(-1).repeat(1, 1, vars.shape[-1])
         mus_joint = torch.sum(mus * masks / vars, dim=1)
-        vars_joint = torch.ones_like(mus_joint)  # batch size
-        vars_joint += torch.sum(masks / vars, dim=1)
+        prior = torch.ones_like(mus_joint)  # batch size
+        vars_joint = prior + torch.sum(masks / vars, dim=1)
         vars_joint = 1.0 / vars_joint  # inverse
         mus_joint *= vars_joint
         logvars_joint = torch.log(vars_joint)
@@ -450,15 +486,15 @@ class MultiVAETorch(BaseModuleClass):
         -------
         Reconstructed values for each modality.
         """
-        z = z_joint.unsqueeze(1).repeat(1, self.n_modality, 1)
-        zs = torch.split(z, 1, dim=1)
-
+        zs = [
+            z_joint for _ in range(self.n_modality)
+        ]  # batch_size x z_dim -> list of batch_size x z_dim, len = n_modality
         if self.condition_decoders is True:
             cat_embedds = self._select_cat_covariates(cat_covs)
             cont_embedds = self._select_cont_covariates(cont_covs)
 
             zs = [
-                torch.cat([z.squeeze(1), cat_embedds, cont_embedds], dim=-1) for z in zs
+                torch.cat([z, cat_embedds, cont_embedds], dim=-1) for z in zs
             ]  # concat embedding to each modality x along the feature axis
 
         rs = [self._h_to_x(z, mod) for mod, z in enumerate(zs)]
@@ -694,18 +730,20 @@ class MultiVAETorch(BaseModuleClass):
 
         if len(unique) > 1:
             if self.modality_alignment == "MMD":
+                mmd = MMD(kernel_type=self.kernel_type)
                 zs = [z[group == i] for i in unique]
                 for i in range(len(zs)):
                     for j in range(i + 1, len(zs)):
-                        loss += MMD(kernel_type=self.kernel_type)(zs[i], zs[j])
+                        loss += mmd(zs[i], zs[j])
 
             elif self.modality_alignment == "Jeffreys":
                 mus_joint = [mu[group == i] for i in unique]
                 logvars_joint = [logvar[group == i] for i in unique]
+                jeffreys = Jeffreys()
                 for i in range(len(mus_joint)):
                     for j in range(i + 1, len(mus_joint)):
                         if len(mus_joint[i]) == len(mus_joint[j]):
-                            loss += Jeffreys()(
+                            loss += jeffreys(
                                 (mus_joint[i], torch.exp(logvars_joint[i])), (mus_joint[j], torch.exp(logvars_joint[j]))
                             )
                         else:

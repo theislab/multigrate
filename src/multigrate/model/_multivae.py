@@ -86,8 +86,8 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         losses: list[str] | None = None,
         dropout: float = 0.2,
         cond_dim: int = 16,
-        kernel_type: Literal["gaussian", None] = "gaussian",
-        loss_coefs: dict[int, float] | None = None,
+        kernel_type: Literal["gaussian", "not gaussian", None] = "gaussian",
+        loss_coefs: dict[str, float] | None = None,
         cont_cov_type: Literal["logsigm", "sigm", None] = "logsigm",
         n_layers_cont_embed: int = 1,  # TODO default to None?
         n_layers_encoders: list[int] | None = None,
@@ -97,28 +97,65 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         n_hidden_decoders: list[int] | None = None,
         modality_alignment: Literal["MMD", "Jeffreys", None] = None,
         alignment_type: Literal["latent", "marginal", "both"] = "latent",
-        activation: str | None = "leaky_relu",  # TODO add which options are impelemted
-        initialization: str | None = None,  # TODO add which options are impelemted
+        activation: Literal["leaky_relu", "tanh"] | None = "leaky_relu",
+        initialization: Literal["xavier", "kaiming"] | None = None,
         ignore_covariates: list[str] | None = None,
         mix: Literal["product", "mixture"] = "product",
     ):
         super().__init__(adata)
 
-        # for the integration with the alignment loss
-        self.group_column = integrate_on
-
         # TODO: add options for number of hidden layers, hidden layers dim and output activation functions
         if normalization not in ["layer", "batch", None]:
             raise ValueError('Normalization has to be one of ["layer", "batch", None]')
-        # TODO: do some assertions for other parameters
+        if alignment_type not in ["latent", "marginal", "both"]:
+            raise ValueError('Alignment type has to be one of ["latent", "marginal", "both"]')
+        if modality_alignment not in ["MMD", "Jeffreys", None]:
+            raise ValueError('Modality alignment has to be one of ["MMD", "Jeffreys", None]')
+        if activation not in ["leaky_relu", "tanh", None]:
+            raise ValueError('Activation has to be one of ["leaky_relu", "tanh", None]')
+        if initialization not in ["xavier", "kaiming", None]:
+            raise ValueError('Initialization has to be one of ["xavier", "kaiming", None]')
+        if mix not in ["product", "mixture"]:
+            raise ValueError('Mix has to be one of ["product", "mixture"]')
+        if kernel_type not in ["gaussian", "not gaussian", None]:
+            raise ValueError('Kernel type has to be one of ["gaussian", "not gaussian", None]')
 
         if ignore_covariates is None:
             ignore_covariates = []
 
+        else:
+            allowed = set(self.adata_manager.registry["setup_args"]["categorical_covariate_keys"]) | set(
+                self.adata_manager.get_state_registry(REGISTRY_KEYS.CONT_COVS_KEY)["columns"]
+            )
+            unknown = [k for k in ignore_covariates if k not in allowed]
+
+            if unknown:
+                raise ValueError(
+                    f"Unknown covariate(s) in `ignore_covariates`: {unknown}. "
+                    f"Known categorical keys: {self.adata_manager.registry['setup_args']['categorical_covariate_keys']}; "
+                    f"known continuous keys: {self.adata_manager.get_state_registry(REGISTRY_KEYS.CONT_COVS_KEY)['columns']}."
+                )
+
         if (
-            "nb" in losses or "zinb" in losses
-        ) and REGISTRY_KEYS.SIZE_FACTOR_KEY not in self.adata_manager.data_registry:
+            (losses is not None)
+            and ("nb" in losses or "zinb" in losses)
+            and (REGISTRY_KEYS.SIZE_FACTOR_KEY not in self.adata_manager.data_registry)
+        ):
             raise ValueError(f"Have to register {REGISTRY_KEYS.SIZE_FACTOR_KEY} when using 'nb' or 'zinb' loss.")
+
+        if "modality_lengths" not in adata.uns:
+            raise ValueError(
+                "Missing `adata.uns['modality_lengths']`. Please run multigrate.data.organize_multimodal_anndatas() first."
+            )
+        if not isinstance(adata.uns["modality_lengths"], list):
+            raise ValueError("`adata.uns['modality_lengths']` must be a list of modality lengths.")
+        if sum(adata.uns["modality_lengths"]) != adata.n_vars:
+            raise ValueError(
+                f"Sum of `modality_lengths` ({sum(adata.uns['modality_lengths'])}) must equal `adata.n_vars` ({adata.n_vars})."
+            )
+
+        # for the integration with the alignment loss
+        self.group_column = integrate_on
 
         self.num_groups = 1
         self.integrate_on_idx = None
@@ -159,8 +196,12 @@ class MultiVAE(BaseModelClass, ArchesMixin):
                     self.cat_covs_idx.append(i)
                     self.cat_covariate_dims.append(num_cat)
 
-        self.cat_covs_idx = torch.tensor(self.cat_covs_idx)
-        self.cont_covs_idx = torch.tensor(self.cont_covs_idx)
+        self.cat_covs_idx = torch.tensor(self.cat_covs_idx, dtype=torch.long)
+        self.cont_covs_idx = torch.tensor(self.cont_covs_idx, dtype=torch.long)
+
+        n_mod = len(self.modality_lengths)
+        if losses is not None and len(losses) != n_mod:
+            raise ValueError(f"`losses` must have length {n_mod}, got {len(losses)}.")
 
         self.module = MultiVAETorch(
             modality_lengths=self.modality_lengths,
@@ -197,7 +238,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
 
     @torch.inference_mode()
     def impute(self, adata=None, batch_size=256):
-        """Impute missing values in the adata object.
+        """Impute missing values in the adata object. Modifies adata in-place, returns None.
 
         Parameters
         ----------
@@ -267,13 +308,13 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         if save_unimodal_latent is True:
             z_marginal = torch.cat(z_marginal)
             for i in range(z_marginal.shape[1]):
-                adata.obsm[f"X_unimodal_{i}"] = z_marginal[:, i, :].squeeze(1).numpy()
+                adata.obsm[f"X_unimodal_{i}"] = z_marginal[:, i, :].numpy()
         if save_unimodal_params is True:
             mu_marginal = torch.cat(mu_marginal)
             logvar_marginal = torch.cat(logvar_marginal)
             for i in range(mu_marginal.shape[1]):
-                adata.obsm[f"mu_unimodal_{i}"] = mu_marginal[:, i, :].squeeze(1).numpy()
-                adata.obsm[f"logvar_unimodal_{i}"] = logvar_marginal[:, i, :].squeeze(1).numpy()
+                adata.obsm[f"mu_unimodal_{i}"] = mu_marginal[:, i, :].numpy()
+                adata.obsm[f"logvar_unimodal_{i}"] = logvar_marginal[:, i, :].numpy()
         adata.obsm["X_multigrate"] = torch.cat(latent).numpy()
 
     def train(
@@ -540,6 +581,8 @@ class MultiVAE(BaseModelClass, ArchesMixin):
 
         if ignore_covariates is None:
             ignore_covariates = []
+        else:
+            raise ValueError("`ignore_covariates` is not supported.")
 
         cls.setup_anndata(
             adata,
@@ -595,7 +638,9 @@ class MultiVAE(BaseModelClass, ArchesMixin):
                 if num_of_cat_to_add[i] > 0:  # unfreeze the ones where categories were added
                     embed.weight.requires_grad = True
             if model.module.integrate_on_idx is not None:
-                model.module.theta.requires_grad = True
+                for p in model.module.theta:
+                    if not p.numel() > 0:
+                        p.requires_grad = True
 
         model.module.eval()
         model.is_trained_ = False

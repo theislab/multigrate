@@ -21,7 +21,7 @@ class MLP(nn.Module):
     dropout_rate
         Dropout rate.
     normalization
-        Type of normalization to use. Can be one of ["layer", "batch", "none"].
+        Type of normalization to use. Can be one of ["layer", "batch", None].
     activation
         Activation function to use. Can be one of ["leaky_relu", "tanh"].
 
@@ -34,7 +34,7 @@ class MLP(nn.Module):
         n_layers: int = 1,
         n_hidden: int = 128,
         dropout_rate: float = 0.1,
-        normalization: str = "layer",
+        normalization: str | None = "layer",
         activation: nn.Module = nn.LeakyReLU,
     ):
         super().__init__()
@@ -48,8 +48,8 @@ class MLP(nn.Module):
         if not (0.0 <= dropout_rate <= 1.0):
             raise ValueError("`dropout_rate` must be in [0, 1].")
 
-        if normalization not in {"layer", "batch", "none"}:
-            raise ValueError("`normalization` must be one of {'layer', 'batch', 'none'}.")
+        if normalization not in {"layer", "batch", None}:
+            raise ValueError("`normalization` must be one of {'layer', 'batch', None}.")
 
         # if none, both are False
         use_layer_norm = normalization == "layer"
@@ -97,7 +97,7 @@ class Decoder(nn.Module):
     dropout_rate
         Dropout rate.
     normalization
-        Type of normalization to use. Can be one of ["layer", "batch", "none"].
+        Type of normalization to use. Can be one of ["layer", "batch", None].
     activation
         Activation function to use. Can be one of ["leaky_relu", "tanh"].
     loss
@@ -111,7 +111,7 @@ class Decoder(nn.Module):
         n_layers: int = 1,
         n_hidden: int = 128,
         dropout_rate: float = 0.1,
-        normalization: str = "layer",
+        normalization: str | None = "layer",
         activation: nn.Module = nn.LeakyReLU,
         loss: str = "mse",
     ):
@@ -130,6 +130,9 @@ class Decoder(nn.Module):
             raise ValueError("`loss` must be one of {'mse', 'nb', 'zinb', 'bce'}.")
         else:
             self.loss = loss
+
+        if normalization not in {"layer", "batch", None}:
+            raise ValueError("`normalization` must be one of {'layer', 'batch', None}.")
 
         self.decoder = MLP(
             n_input=n_input,

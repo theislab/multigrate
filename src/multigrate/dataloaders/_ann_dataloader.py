@@ -38,6 +38,14 @@ class StratifiedSampler(torch.utils.data.sampler.Sampler):
         drop_last: bool | int = True,
         shuffle_classes: bool = True,
     ):
+        if len(indices) == 0:
+            raise ValueError("`indices` must be non-empty.")
+        if len(group_labels) != len(indices):
+            raise ValueError("`group_labels` must have the same length as `indices`.")
+        if min_size_per_class <= 0:
+            raise ValueError("`min_size_per_class` must be positive.")
+        if min_size_per_class > batch_size:
+            raise ValueError("`min_size_per_class` must be <= `batch_size`.")
         if drop_last > batch_size:
             raise ValueError(
                 "drop_last can't be greater than batch_size. "
@@ -49,6 +57,8 @@ class StratifiedSampler(torch.utils.data.sampler.Sampler):
                 "min_size_per_class has to be a divisor of batch_size."
                 + f"min_size_per_class is {min_size_per_class} but batch_size is {batch_size}."
             )
+        if isinstance(drop_last, int) and drop_last < 0:
+            raise ValueError("If `drop_last` is int, it must be >= 0.")
 
         self.indices = indices
         self.group_labels = group_labels
@@ -175,6 +185,11 @@ class GroupAnnDataLoader(DataLoader):
         sampler: torch.utils.data.sampler.Sampler | None = StratifiedSampler,
         **data_loader_kwargs,
     ):
+        if "_scvi_extra_categorical_covs" not in adata_manager.adata.obsm:
+            raise ValueError(
+                "AnnData is missing `.obsm['_scvi_extra_categorical_covs']` required for GroupAnnDataLoader."
+            )
+
         if adata_manager.adata is None:
             raise ValueError("Please run register_fields() on your AnnDataManager object first.")
 
