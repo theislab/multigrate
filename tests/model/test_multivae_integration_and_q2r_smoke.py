@@ -1,7 +1,7 @@
 import pytest
+from tests._helpers import add_new_categories_for_query
 
 from multigrate.model._multivae import MultiVAE
-from tests._helpers import add_new_categories_for_query
 
 
 @pytest.mark.parametrize(
@@ -52,7 +52,7 @@ def test_multivae_ref_train_q2r_train_and_impute(
     # Reference model
     # --------------------
     ref = setup_multivae_anndata(multivae_adata_2mod.copy())
-    
+
     loss_coefs = None
     if cfg["integrate_on"] is not None:
         # use your preferred convention (full dict is safest)

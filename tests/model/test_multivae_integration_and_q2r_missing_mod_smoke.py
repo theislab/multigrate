@@ -1,7 +1,7 @@
 import pytest
+from tests._helpers import add_new_categories_for_query
 
 from multigrate.model._multivae import MultiVAE
-from tests._helpers import add_new_categories_for_query
 
 
 @pytest.mark.parametrize(
@@ -52,11 +52,11 @@ def test_multivae_ref_train_q2r_train_and_impute(
     # Reference model
     # --------------------
     ref = setup_multivae_anndata(multivae_adata_2mod.copy())
-    
+
     # simulate missing modality for batch b1, modality 2
-    ref.X[:, 8:][ref.obs['batch'] == 'b1'] = 0.0  # zero-out modality 2 for batch b1
+    ref.X[:, 8:][ref.obs["batch"] == "b1"] = 0.0  # zero-out modality 2 for batch b1
     # check that there are cells with missing modality
-    assert (ref.X[:, 8:][ref.obs['batch'] == 'b1'] == 0.0).all()
+    assert (ref.X[:, 8:][ref.obs["batch"] == "b1"] == 0.0).all()
 
     loss_coefs = None
     if cfg["integrate_on"] is not None:

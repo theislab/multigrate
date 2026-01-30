@@ -1,4 +1,5 @@
 import pytest
+
 from multigrate.model._multivae import MultiVAE
 
 
