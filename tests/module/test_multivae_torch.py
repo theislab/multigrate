@@ -56,6 +56,7 @@ def _make_model(
 # __init__ validation tests
 # -------------------------
 
+
 def test_init_requires_cat_covariate_dims():
     with pytest.raises(ValueError, match=r"cat_covariate_dims = None"):
         _ = MultiVAETorch(
@@ -114,6 +115,7 @@ def test_theta_parameterlist_shapes_and_grad_flags():
 # -------------------------
 # Core forward-path shape tests
 # -------------------------
+
 
 def test_inference_outputs_have_expected_shapes_product():
     # Use explicit empty indices (works even before you implement the "None->empty" fix)

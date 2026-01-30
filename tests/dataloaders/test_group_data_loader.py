@@ -1,15 +1,15 @@
+import anndata as ad
 import numpy as np
 import pandas as pd
 import pytest
 import torch
-import anndata as ad
 
-from multigrate.dataloaders._ann_dataloader import StratifiedSampler, GroupAnnDataLoader
-
+from multigrate.dataloaders._ann_dataloader import GroupAnnDataLoader, StratifiedSampler
 
 # -------------------------
 # StratifiedSampler tests
 # -------------------------
+
 
 def test_stratified_sampler_raises_on_empty_indices():
     with pytest.raises(ValueError, match=r"`indices` must be non-empty"):
@@ -146,8 +146,10 @@ def test_stratified_sampler_drop_last_true_drops_remainder_within_class():
 # GroupAnnDataLoader tests
 # -------------------------
 
+
 class DummyAnnTorchDataset:
     """Stand-in for scvi.dataloaders.AnnTorchDataset."""
+
     def __init__(self, adata_manager, getitem_tensors=None):
         self.adata_manager = adata_manager
         self.getitem_tensors = getitem_tensors
@@ -161,6 +163,7 @@ class DummyAnnTorchDataset:
 
 class CaptureSampler(torch.utils.data.Sampler):
     """Sampler that captures kwargs; yields a single batch (batched indices)."""
+
     def __init__(self, **kwargs):
         self.kwargs = kwargs
         self._batch = [kwargs["indices"].tolist()]
@@ -174,15 +177,17 @@ class CaptureSampler(torch.utils.data.Sampler):
 
 class DummyAnnDataManager:
     """Minimal stub of AnnDataManager for unit testing GroupAnnDataLoader."""
+
     def __init__(self, adata, categorical_covariate_keys, data_registry_keys=None):
         self.adata = adata
-        self.data_registry = {k: None for k in (data_registry_keys or [])}
+        self.data_registry = dict.fromkeys(data_registry_keys or [])
         self.registry = {"setup_args": {"categorical_covariate_keys": categorical_covariate_keys}}
 
 
 def _patch_anntorchdataset(monkeypatch):
     # Patch AnnTorchDataset imported in the module under test, so we avoid scvi internals.
     import multigrate.dataloaders._ann_dataloader as mod
+
     monkeypatch.setattr(mod, "AnnTorchDataset", DummyAnnTorchDataset)
 
 
@@ -241,7 +246,7 @@ def test_group_dataloader_boolean_indices_are_converted_and_group_labels_subset(
         indices=np.array([True, False, True, False, True]),  # selects 0,2,4
         batch_size=4,
         min_size_per_class=2,
-        sampler=CaptureSampler,          # avoid StratifiedSampler complexity in this unit test
+        sampler=CaptureSampler,  # avoid StratifiedSampler complexity in this unit test
         shuffle=False,
         shuffle_classes=False,
         drop_last=False,

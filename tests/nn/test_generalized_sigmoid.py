@@ -88,14 +88,38 @@ def test_generalized_sigmoid_backward_updates_beta_and_bias(nonlin):
     assert torch.isfinite(gs.bias.grad).all()
 
 
-def test_generalized_sigmoid_logsigtm_nan_if_input_below_minus_one():
-    # This test documents the mathematical domain issue of log1p for x <= -1.
-    # It ensures we notice if behavior changes (e.g. if we later clamp inputs).
+def test_generalized_sigmoid_logsigm_raises_on_non_positive_input():
     dim = 3
     gs = GeneralizedSigmoid(dim=dim, nonlin="logsigm")
 
-    x = torch.full((2, dim), -1.5)
+    # includes zero and negative values
+    x = torch.tensor(
+        [
+            [1.0, 0.0, 2.0],
+            [1.0, -0.5, 3.0],
+        ]
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"All continuous covariates must be positive",
+    ):
+        _ = gs(x)
+
+
+def test_generalized_sigmoid_logsigm_accepts_strictly_positive_input():
+    dim = 3
+    gs = GeneralizedSigmoid(dim=dim, nonlin="logsigm")
+
+    x = torch.tensor(
+        [
+            [0.1, 1.0, 10.0],
+            [0.01, 2.5, 3.3],
+        ]
+    )
+
     y = gs(x)
 
-    # log1p(-1.5) => NaN, so output will contain NaNs
-    assert torch.isnan(y).any()
+    assert torch.isfinite(y).all()
+    assert y.shape == x.shape
+    assert torch.all((y > 0) & (y < 1))
