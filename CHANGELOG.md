@@ -12,5 +12,10 @@ and this project adheres to [Semantic Versioning][].
 
 ### Added
 
-- support for scvi-tools >= 1.0 (#37)
-- support for multiple NB lossed (#34)
+- support for scvi-tools >= 1.0 ([#37](https://github.com/theislab/multigrate/pull/37))
+- support for multiple NB lossed ([#34](https://github.com/theislab/multigrate/pull/34))
+- tests
+
+### Changed
+
+- how the masks for missing modalities are calculated: now assume that the modality is missing when all features are zero instead of the sum over all features being <= 0 previously (only makes a difference when the input can be negative, which doesn't happen with standard single-cell modalities)

@@ -5,6 +5,13 @@ from torch.distributions import Normal
 from torch.distributions import kl_divergence as kld
 
 
+def _check_params(mu, sigma, name: str):
+    if mu.shape != sigma.shape:
+        raise ValueError(f"{name}: `mu` and `sigma` must have the same shape, got {mu.shape} vs {sigma.shape}.")
+    if mu.ndim < 1:
+        raise ValueError(f"{name}: expected at least 1D tensors for `mu`/`sigma`.")
+
+
 class Jeffreys(torch.nn.Module):
     """Jeffreys divergence (Symmetric KL divergence) using torch distributions.
 
@@ -46,15 +53,19 @@ class Jeffreys(torch.nn.Module):
         out = kld(rv1, rv2).mean() + kld(rv2, rv1).mean()
         return out
 
-    def forward(self, params1: torch.Tensor, params2: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        params1: tuple[torch.Tensor, torch.Tensor],
+        params2: tuple[torch.Tensor, torch.Tensor],
+    ) -> torch.Tensor:
         """Forward computation for Jeffreys divergence.
 
         Parameters
         ----------
         params1
-            A tuple of mean and variance (or standard deviation) of the first distribution.
+            A tuple of mean and variance of the first distribution.
         params2
-            A tuple of mean and variance (or standard deviation) of the second distribution.
+            A tuple of mean and variance of the second distribution.
 
         Returns
         -------
@@ -63,8 +74,13 @@ class Jeffreys(torch.nn.Module):
         mu1, sigma1 = params1
         mu2, sigma2 = params2
 
-        # Ensure non-negative sigma (variance) values
-        sigma1 = sigma1.clamp(min=1e-6)
-        sigma2 = sigma2.clamp(min=1e-6)
+        _check_params(mu1, sigma1, "params1")
+        _check_params(mu2, sigma2, "params2")
+
+        # sigmas should be positive
+        if torch.any(sigma1 <= 0):
+            raise ValueError("params1: all elements of `sigma` must be positive.")
+        if torch.any(sigma2 <= 0):
+            raise ValueError("params2: all elements of `sigma` must be positive.")
 
         return self.sym_kld(mu1, sigma1, mu2, sigma2)
