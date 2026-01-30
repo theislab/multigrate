@@ -57,7 +57,8 @@ class MultiVAETorch(BaseModuleClass):
         List of 1's for each of the continuous covariate.
     cont_cov_type
         How to transform continuous covariate before multiplying with the embedding. One of the following:
-        * ``'logsigm'`` - generalized sigmoid
+        * ``'logsigm'`` - log generalized sigmoid,  use for positive continuous covariates.
+        * ``'sigm'`` - generalized sigmoid, use for continuous covariates that can take negative values.
         * ``'mlp'`` - MLP.
     n_layers_cont_embed
         Number of layers for the transformation of the continuous covariates before multiplying with the embedding.
@@ -106,7 +107,7 @@ class MultiVAETorch(BaseModuleClass):
         losses=None,
         dropout=0.2,
         cond_dim=16,
-        kernel_type="gaussian",
+        kernel_type: Literal["gaussian", "not gaussian"] | None = "gaussian",
         loss_coefs=None,
         num_groups=1,
         integrate_on_idx=None,
@@ -114,7 +115,7 @@ class MultiVAETorch(BaseModuleClass):
         cont_covariate_dims=None,
         cat_covs_idx=None,
         cont_covs_idx=None,
-        cont_cov_type: Literal["logsigm", "mlp"] | None = "logsigm",
+        cont_cov_type: Literal["logsigm", "sigm", "mlp"] | None = "sigm",
         n_layers_cont_embed: int = 1,
         n_layers_encoders=None,
         n_layers_decoders=None,
@@ -198,7 +199,7 @@ class MultiVAETorch(BaseModuleClass):
 
         self.loss_coefs = {
             "recon": 1,
-            "kl": 1e-6,
+            "kl": 1e-5,
             "integ": 0,
         }
         for i in range(self.n_modality):
@@ -344,7 +345,6 @@ class MultiVAETorch(BaseModuleClass):
         return x
 
     def _product_of_experts(self, mus, logvars, masks):
-        # print(mus, logvars, masks)
         vars = torch.exp(logvars)
         masks = masks.unsqueeze(-1).repeat(1, 1, vars.shape[-1])
         mus_joint = torch.sum(mus * masks / vars, dim=1)
@@ -447,6 +447,7 @@ class MultiVAETorch(BaseModuleClass):
         mu = torch.stack(mus, dim=1)
         logvars = [mod_out[2] for mod_out in out]
         logvar = torch.stack(logvars, dim=1)
+
         if self.mix == "product":
             mu_joint, logvar_joint = self._product_of_experts(mu, logvar, masks)
         elif self.mix == "mixture":
@@ -546,11 +547,14 @@ class MultiVAETorch(BaseModuleClass):
         xs = torch.split(
             x, self.input_dims, dim=-1
         )  # list of tensors of len = n_mod, each tensor is of shape batch_size x mod_input_dim
-        masks = [x.sum(dim=1) > 0 for x in xs]  # [batch_size] * num_modalities
+        # masks assume that missing modalities are all 0s
+        # TODO change so it's infered from organize_multimodal_anndatas()
+        masks = [x.sum(dim=1) != 0 for x in xs]  # [batch_size] * num_modalities
 
         recon_loss, modality_recon_losses = self._calc_recon_loss(
             xs, rs, self.losses, integrate_on, size_factor, self.loss_coefs, masks
         )
+
         kl_loss = kl_weight * kl(Normal(mu, torch.sqrt(torch.exp(logvar))), Normal(0, 1)).sum(dim=1)
 
         integ_loss = torch.tensor(0.0).to(self.device)
@@ -558,12 +562,10 @@ class MultiVAETorch(BaseModuleClass):
             if self.alignment_type == "latent" or self.alignment_type == "both":
                 integ_loss += self._calc_integ_loss(z_joint, mu, logvar, integrate_on).to(self.device)
             if self.alignment_type == "marginal" or self.alignment_type == "both":
+                # calculate integration loss between marginals per modality
                 for i in range(len(masks)):
                     for j in range(i + 1, len(masks)):
-                        idx_where_to_calc_integ_loss = torch.eq(
-                            masks[i] == masks[j],
-                            torch.eq(masks[i], torch.ones_like(masks[i])),
-                        )
+                        idx_where_to_calc_integ_loss = (masks[i] == 1) & (masks[j] == 1)
                         if (
                             idx_where_to_calc_integ_loss.any()
                         ):  # if need to calc integ loss for a group between modalities
@@ -582,15 +584,17 @@ class MultiVAETorch(BaseModuleClass):
 
                             modalities = torch.cat(
                                 [
-                                    torch.Tensor([i] * marginal_i.shape[0]),
-                                    torch.Tensor([j] * marginal_j.shape[0]),
-                                ]
-                            ).to(self.device)
+                                    torch.full((marginal_i.shape[0],), i, dtype=torch.long, device=self.device),
+                                    torch.full((marginal_j.shape[0],), j, dtype=torch.long, device=self.device),
+                                ],
+                                dim=0,
+                            )
 
                             integ_loss += self._calc_integ_loss(
                                 marginals, mus_marginal, logvars_marginal, modalities
                             ).to(self.device)
 
+                # calculate integration loss within each modality, i.e. between marginals from different integrate_on groups
                 for i in range(len(masks)):
                     marginal_i = z_marginal[:, i, :]
                     marginal_i = marginal_i[masks[i]]
@@ -656,33 +660,6 @@ class MultiVAETorch(BaseModuleClass):
             kl_local=kl_loss,
             extra_metrics=extra_metrics,
         )
-
-    # @torch.inference_mode()
-    # def sample(self, tensors, n_samples=1):
-    #     """Sample from the generative model.
-
-    #     Parameters
-    #     ----------
-    #     tensors
-    #         Tensor of values.
-    #     n_samples
-    #         Number of samples to generate.
-
-    #     Returns
-    #     -------
-    #     Generative outputs.
-    #     """
-    #     inference_kwargs = {"n_samples": n_samples}
-    #     with torch.inference_mode():
-    #         (
-    #             _,
-    #             generative_outputs,
-    #         ) = self.forward(
-    #             tensors,
-    #             inference_kwargs=inference_kwargs,
-    #             compute_loss=False,
-    #         )
-    #     return generative_outputs["rs"]
 
     def _calc_recon_loss(self, xs, rs, losses, group, size_factor, loss_coefs, masks):
         loss = []
