@@ -7,38 +7,38 @@ from multigrate.model._multivae import MultiVAE
 @pytest.mark.parametrize(
     "cfg",
     [
-        dict(
-            mix="product",
-            condition_encoders=False,
-            condition_decoders=True,
-            modality_alignment=None,
-            alignment_type="latent",  # ignored if no alignment
-            integrate_on=None,
-        ),
-        dict(
-            mix="product",
-            condition_encoders=True,
-            condition_decoders=True,
-            modality_alignment=None,
-            alignment_type="latent",  # ignored if no alignment
-            integrate_on=None,
-        ),
-        dict(
-            mix="product",
-            condition_encoders=True,
-            condition_decoders=True,
-            modality_alignment="MMD",
-            alignment_type="both",
-            integrate_on="batch",
-        ),
-        dict(
-            mix="product",
-            condition_encoders=True,
-            condition_decoders=True,
-            modality_alignment="Jeffreys",
-            alignment_type="both",
-            integrate_on="batch",
-        ),
+        {
+            "mix": "product",
+            "condition_encoders": False,
+            "condition_decoders": True,
+            "modality_alignment": None,
+            "alignment_type": "latent",  # ignored if no alignment
+            "integrate_on": None,
+        },
+        {
+            "mix": "product",
+            "condition_encoders": True,
+            "condition_decoders": True,
+            "modality_alignment": None,
+            "alignment_type": "latent",  # ignored if no alignment
+            "integrate_on": None,
+        },
+        {
+            "mix": "product",
+            "condition_encoders": True,
+            "condition_decoders": True,
+            "modality_alignment": "MMD",
+            "alignment_type": "both",
+            "integrate_on": "batch",
+        },
+        {
+            "mix": "product",
+            "condition_encoders": True,
+            "condition_decoders": True,
+            "modality_alignment": "Jeffreys",
+            "alignment_type": "both",
+            "integrate_on": "batch",
+        },
     ],
 )
 def test_multivae_ref_train_q2r_train_and_impute(
