@@ -217,7 +217,7 @@ class GeneralizedSigmoid(nn.Module):
         Type of non-linearity to use. Can be one of ["logsigm", "sigm", None]. Default is "logsigm".
     """
 
-    def __init__(self, dim: int, nonlin: Literal["logsigm", "sigm"] | None = "logsigm"):
+    def __init__(self, dim: int, nonlin: Literal["logsigm", "sigm"] | None = "sigm"):
         super().__init__()
         if dim <= 0:
             raise ValueError("`dim` must be positive.")
@@ -240,6 +240,9 @@ class GeneralizedSigmoid(nn.Module):
         Tensor of values with the same shape as ``x``.
         """
         if self.nonlin == "logsigm":
+            # check if using logsigm, then all continuous covariates must be positive
+            if not torch.all(x > 0):
+                raise ValueError("All continuous covariates must be positive when using 'logsigm'.")
             return (torch.log1p(x) * self.beta + self.bias).sigmoid()
         elif self.nonlin == "sigm":
             return (x * self.beta + self.bias).sigmoid()

@@ -1,4 +1,5 @@
 import logging
+import warnings
 from typing import Literal
 
 import anndata as ad
@@ -30,7 +31,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
     integrate_on
         One of the categorical covariates refistered with :meth:`~multigrate.model.MultiVAE.setup_anndata` to integrate on. The latent space then will be disentangled from this covariate. If `None`, no integration is performed.
     condition_encoders
-        Whether to concatentate covariate embeddings to the first layer of the encoders. Default is `False`.
+        Whether to concatentate covariate embeddings to the first layer of the encoders. Default is `True`.
     condition_decoders
         Whether to concatentate covariate embeddings to the first layer of the decoders. Default is `True`.
     normalization
@@ -46,9 +47,9 @@ class MultiVAE(BaseModelClass, ArchesMixin):
     kernel_type
         Type of kernel to use for the MMD loss. Default is `gaussian`.
     loss_coefs
-        Loss coeficients for the different losses in the model. Default is 1 for all.
+        Loss coeficients for the different losses in the model.
     cont_cov_type
-        How to calculate embeddings for continuous covariates. Default is `logsigm`.
+        How to calculate embeddings for continuous covariates. Default is `sigm`.
     n_layers_cont_embed
         Number of layers for the continuous covariate embedding calculation. Default is 1.
     n_layers_encoders
@@ -88,7 +89,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         cond_dim: int = 16,
         kernel_type: Literal["gaussian", "not gaussian", None] = "gaussian",
         loss_coefs: dict[str, float] | None = None,
-        cont_cov_type: Literal["logsigm", "sigm", None] = "logsigm",
+        cont_cov_type: Literal["logsigm", "sigm", None] = "sigm",
         n_layers_cont_embed: int = 1,  # TODO default to None?
         n_layers_encoders: list[int] | None = None,
         n_layers_decoders: list[int] | None = None,
@@ -153,6 +154,19 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             raise ValueError(
                 f"Sum of `modality_lengths` ({sum(adata.uns['modality_lengths'])}) must equal `adata.n_vars` ({adata.n_vars})."
             )
+
+        if integrate_on is not None:
+            if loss_coefs is None:
+                warnings.warn(
+                    "`integrate_on` is set but `loss_coefs` was not provided. "
+                    "Setting integration loss coefficient `integ=1.0` by default.",
+                    stacklevel=2,
+                )
+                loss_coefs = {"integ": 1.0}
+            elif loss_coefs.get("integ", 0.0) == 0.0:
+                raise ValueError(
+                    "`integrate_on` is set but `loss_coefs['integ']` is 0. Set a positive integration loss coefficient."
+                )
 
         # for the integration with the alignment loss
         self.group_column = integrate_on
@@ -336,8 +350,8 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         n_steps_kl_warmup: int | None = None,
         adversarial_mixing: bool = False,  # TODO check if suppored by us, i don't think it is
         plan_kwargs: dict | None = None,
-        save_checkpoint_every_n_epochs: int | None = None,
-        path_to_checkpoints: str | None = None,
+        # save_checkpoint_every_n_epochs: int | None = None,
+        # path_to_checkpoints: str | None = None,
         **kwargs,
     ):
         """Train the model using amortized variational inference.
