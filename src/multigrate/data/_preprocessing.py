@@ -36,6 +36,7 @@ def organize_multimodal_anndatas(
     datasets_obs = {}
     modality_lengths = {}
     modality_var_names = {}
+    modality_vars: dict[int, pd.DataFrame] = {}
 
     # sanity checks and preparing data for concat
     for mod, modality_adatas in enumerate(adatas):
@@ -77,12 +78,14 @@ def organize_multimodal_anndatas(
                     cols_to_use = adata.obs.columns.difference(datasets_obs[i].columns)
                     datasets_obs[i] = datasets_obs[i].join(adata.obs[cols_to_use])
                 modality_var_names[mod] = adata.var_names
+                if mod not in modality_vars:
+                    modality_vars[mod] = adata.var
 
     for mod, modality_adatas in enumerate(adatas):
         for i, adata in enumerate(modality_adatas):
             if not isinstance(adata, ad.AnnData) and adata is None:
                 X_zeros = np.zeros((datasets_lengths[i], modality_lengths[f"{mod}"]))
-                adatas[mod][i] = ad.AnnData(X_zeros, dtype=X_zeros.dtype)
+                adatas[mod][i] = ad.AnnData(X_zeros)
                 adatas[mod][i].obs_names = datasets_obs_names[i]
                 adatas[mod][i].var_names = modality_var_names[mod]
                 adatas[mod][i] = adatas[mod][i].copy()
@@ -105,6 +108,26 @@ def organize_multimodal_anndatas(
 
     # we will need modality_length later for the model init
     multiome_anndata.uns["modality_lengths"] = modality_lengths
+
+    # preserve .var metadata across modalities; suffix overlapping column names with modality index (issue #4)
+    col_counts: dict[str, int] = {}
+    for df in modality_vars.values():
+        for col in df.columns:
+            col_counts[col] = col_counts.get(col, 0) + 1
+    shared_cols = {col for col, n in col_counts.items() if n > 1}
+
+    var_dfs = []
+    for mod in range(len(adatas)):
+        if mod in modality_vars:
+            df = modality_vars[mod].copy()
+            if shared_cols:
+                df = df.rename(columns={c: f"{c}_{mod}" for c in df.columns if c in shared_cols})
+            var_dfs.append(df)
+
     multiome_anndata.var_names_make_unique()
+    if var_dfs:
+        combined_var = pd.concat(var_dfs)
+        combined_var.index = multiome_anndata.var_names
+        multiome_anndata.var = combined_var
 
     return multiome_anndata

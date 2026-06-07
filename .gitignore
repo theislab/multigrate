@@ -19,3 +19,6 @@ __pycache__/
 # docs
 /docs/generated/
 /docs/_build/
+/docs/notebooks/data/
+/docs/notebooks/totalvi_test.ipynb
+/docs/notebooks/*.h5ad

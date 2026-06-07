@@ -116,7 +116,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             ignore_covariates = []
 
         if (
-            "nb" in losses or "zinb" in losses
+            losses is not None and ("nb" in losses or "zinb" in losses)
         ) and REGISTRY_KEYS.SIZE_FACTOR_KEY not in self.adata_manager.data_registry:
             raise ValueError(f"Have to register {REGISTRY_KEYS.SIZE_FACTOR_KEY} when using 'nb' or 'zinb' loss.")
 
@@ -148,7 +148,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         self.cont_covs_idx = []
         self.cont_covariate_dims = []
         if len(cont_covs := self.adata_manager.get_state_registry(REGISTRY_KEYS.CONT_COVS_KEY)) > 0:
-            for i, key in enumerate(cont_covs["columns"]):
+            for i, key in enumerate(cont_covs.get("columns", [])):
                 if key not in ignore_covariates:
                     self.cont_covs_idx.append(i)
                     self.cont_covariate_dims.append(1)
@@ -595,7 +595,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             for i, embed in enumerate(model.module.cat_covariate_embeddings):
                 if num_of_cat_to_add[i] > 0:  # unfreeze the ones where categories were added
                     embed.weight.requires_grad = True
-            if model.module.integrate_on_idx is not None:
+            if model.module.integrate_on_idx is not None and model.module.theta is not None:
                 model.module.theta.requires_grad = True
 
         model.module.eval()
