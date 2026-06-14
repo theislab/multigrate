@@ -58,7 +58,8 @@ def test_end_to_end_default_losses():
     MultiVAE.setup_anndata(mref, rna_indices_end=50, categorical_covariate_keys=["group"])
     model_io = MultiVAE(mref, integrate_on="group")
     model_io.train(max_epochs=2, accelerator="cpu", batch_size=32)
-    assert model_io.module.theta is None  # mse losses → no theta
+    # With MSE losses only, theta ParameterList exists but contains only empty parameters
+    assert all(p.numel() == 0 for p in model_io.module.theta)  # mse losses → empty theta
 
     rna_q = _make_adata(30, 50, prefix="q", var_prefix="gene")
     prot_q = _make_adata(30, 10, prefix="q", var_prefix="prot")

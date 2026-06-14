@@ -4,7 +4,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "multigrate"
-version = "0.1.0"
+version = "1.0.0"
 description = "Multimodal weakly supervised learning to identify disease-specific changes in single-cell atlases"
 readme = "README.md"
 license = { file = "LICENSE" }

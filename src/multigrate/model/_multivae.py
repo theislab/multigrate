@@ -126,7 +126,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
 
         else:
             allowed = set(self.adata_manager.registry["setup_args"]["categorical_covariate_keys"]) | set(
-                self.adata_manager.get_state_registry(REGISTRY_KEYS.CONT_COVS_KEY)["columns"]
+                self.adata_manager.get_state_registry(REGISTRY_KEYS.CONT_COVS_KEY).get("columns", [])
             )
             unknown = [k for k in ignore_covariates if k not in allowed]
 
@@ -649,8 +649,11 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             for i, embed in enumerate(model.module.cat_covariate_embeddings):
                 if num_of_cat_to_add[i] > 0:  # unfreeze the ones where categories were added
                     embed.weight.requires_grad = True
-            if model.module.integrate_on_idx is not None and model.module.theta is not None:
-                model.module.theta.requires_grad = True
+            if model.module.integrate_on_idx is not None and any(p.numel() > 0 for p in model.module.theta):
+                # Unfreeze theta parameters that have non-zero size (i.e., NB/ZINB losses)
+                for p in model.module.theta:
+                    if p.numel() > 0:
+                        p.requires_grad = True
 
         model.module.eval()
         model.is_trained_ = False

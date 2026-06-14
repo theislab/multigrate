@@ -203,7 +203,7 @@ def test_warns_and_makes_unique_if_var_names_duplicate_across_modalities():
     m1_g0 = make_adata(2, ["dup", "p2"], "cell-g0", seed=2)
     m1_g1 = make_adata(2, ["dup", "p2"], "cell-g1", seed=3)
 
-    with pytest.warns(UserWarning, match=r"var_names are not unique; making them unique."):
+    with pytest.warns(UserWarning, match=r"(var_names are not unique|Variable names are not unique)"):
         out = organize_multimodal_anndatas([[m0_g0, m0_g1], [m1_g0, m1_g1]])
 
     assert out.var_names.is_unique

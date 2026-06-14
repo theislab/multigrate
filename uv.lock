@@ -2337,6 +2337,30 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+dev = [
+    { name = "pre-commit" },
+    { name = "twine" },
+]
+doc = [
+    { name = "docutils" },
+    { name = "ipykernel" },
+    { name = "ipython" },
+    { name = "myst-nb" },
+    { name = "pandas" },
+    { name = "setuptools" },
+    { name = "sphinx" },
+    { name = "sphinx-autodoc-typehints" },
+    { name = "sphinx-book-theme" },
+    { name = "sphinx-copybutton" },
+    { name = "sphinx-tabs" },
+    { name = "sphinxcontrib-bibtex" },
+    { name = "sphinxext-opengraph" },
+]
+test = [
+    { name = "coverage" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
 tutorials = [
     { name = "gdown" },
     { name = "igraph" },
@@ -2375,21 +2399,39 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "anndata", specifier = ">=0.12" },
+    { name = "coverage", marker = "extra == 'test'", specifier = ">=7.10" },
+    { name = "docutils", marker = "extra == 'doc'", specifier = ">=0.8,!=0.18.*,!=0.19.*" },
     { name = "gdown", marker = "extra == 'tutorials'" },
     { name = "igraph", marker = "extra == 'tutorials'" },
+    { name = "ipykernel", marker = "extra == 'doc'" },
+    { name = "ipython", marker = "extra == 'doc'" },
     { name = "ipywidgets", marker = "extra == 'tutorials'" },
     { name = "jax" },
     { name = "jupyterlab", marker = "extra == 'tutorials'" },
     { name = "leidenalg", marker = "extra == 'tutorials'" },
     { name = "matplotlib" },
     { name = "muon", marker = "extra == 'tutorials'" },
+    { name = "myst-nb", marker = "extra == 'doc'", specifier = ">=1.1" },
     { name = "numpy" },
+    { name = "pandas", marker = "extra == 'doc'" },
+    { name = "pre-commit", marker = "extra == 'dev'" },
+    { name = "pytest", marker = "extra == 'test'" },
+    { name = "pytest-cov", marker = "extra == 'test'" },
     { name = "requests" },
     { name = "scanpy" },
     { name = "scvi-tools", specifier = ">=1.4.3" },
     { name = "session-info2" },
+    { name = "setuptools", marker = "extra == 'doc'" },
+    { name = "sphinx", marker = "extra == 'doc'", specifier = ">=8.1" },
+    { name = "sphinx-autodoc-typehints", marker = "extra == 'doc'" },
+    { name = "sphinx-book-theme", marker = "extra == 'doc'", specifier = ">=1" },
+    { name = "sphinx-copybutton", marker = "extra == 'doc'" },
+    { name = "sphinx-tabs", marker = "extra == 'doc'" },
+    { name = "sphinxcontrib-bibtex", marker = "extra == 'doc'", specifier = ">=1" },
+    { name = "sphinxext-opengraph", marker = "extra == 'doc'" },
+    { name = "twine", marker = "extra == 'dev'", specifier = ">=4.0.2" },
 ]
-provides-extras = ["tutorials"]
+provides-extras = ["dev", "doc", "test", "tutorials"]
 
 [package.metadata.requires-dev]
 dev = [
