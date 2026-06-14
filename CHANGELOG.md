@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning][].
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
-## Unreleased
+## [1.0.0] - 2026-06-14
 
 ### Fixed
 
@@ -26,7 +26,10 @@ and this project adheres to [Semantic Versioning][].
 - Migrated developer tooling from hatch to native [uv](https://docs.astral.sh/uv/). Dependency groups (`dev`, `test`, `doc`) are now declared via PEP 735 `[dependency-groups]` in `pyproject.toml`.
 - CI rewritten to use `uv sync --group test` + `uv run pytest` against Python 3.12 and 3.13.
 - ReadTheDocs build updated to use `uv sync --group doc` + `uv run sphinx-build`.
+- How the masks for missing modalities are calculated: now assume that the modality is missing when all features are zero instead of the sum over all features being <= 0 previously (only makes a difference when the input can be negative, which doesn't happen with standard single-cell modalities)
 
 ### Added
 
-- Minimal smoke test suite in `tests/test_basic.py` covering the end-to-end pipeline, `integrate_on`, and `.var` preservation.
+- support for scvi-tools >= 1.0 ([#37](https://github.com/theislab/multigrate/pull/37))
+- support for multiple NB lossed ([#34](https://github.com/theislab/multigrate/pull/34))
+- tests

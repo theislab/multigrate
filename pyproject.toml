@@ -19,6 +19,7 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
   "anndata>=0.12",
@@ -29,6 +30,31 @@ dependencies = [
   "scanpy",
   "scvi-tools>=1.4.3",
   "session-info2",
+]
+optional-dependencies.dev = [
+  "pre-commit",
+  "twine>=4.0.2",
+]
+optional-dependencies.doc = [
+  "docutils>=0.8,!=0.18.*,!=0.19.*",
+  "ipykernel",
+  "ipython",
+  "myst-nb>=1.1",
+  "pandas",
+  # Until pybtex >0.24.0 releases: https://bitbucket.org/pybtex-devs/pybtex/issues/169/
+  "setuptools",
+  "sphinx>=8.1",
+  "sphinx-autodoc-typehints",
+  "sphinx-book-theme>=1",
+  "sphinx-copybutton",
+  "sphinx-tabs",
+  "sphinxcontrib-bibtex>=1",
+  "sphinxext-opengraph",
+]
+optional-dependencies.test = [
+  "coverage>=7.10",
+  "pytest",
+  "pytest-cov",     # For VS Code’s coverage functionality
 ]
 optional-dependencies.tutorials = [
   "gdown",
