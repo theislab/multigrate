@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --group test
         env:
-          UV_PRERELEASE: ${{ matrix.prerelease && 'allow' || '' }}
+          UV_PRERELEASE: ${{ matrix.prerelease && 'allow' || 'disallow' }}
       - name: Run tests
         env:
           MPLBACKEND: agg
