@@ -126,7 +126,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
 
         else:
             allowed = set(self.adata_manager.registry["setup_args"]["categorical_covariate_keys"]) | set(
-                self.adata_manager.get_state_registry(REGISTRY_KEYS.CONT_COVS_KEY)["columns"]
+                self.adata_manager.get_state_registry(REGISTRY_KEYS.CONT_COVS_KEY).get("columns", [])
             )
             unknown = [k for k in ignore_covariates if k not in allowed]
 
@@ -138,10 +138,8 @@ class MultiVAE(BaseModelClass, ArchesMixin):
                 )
 
         if (
-            (losses is not None)
-            and ("nb" in losses or "zinb" in losses)
-            and (REGISTRY_KEYS.SIZE_FACTOR_KEY not in self.adata_manager.data_registry)
-        ):
+            losses is not None and ("nb" in losses or "zinb" in losses)
+        ) and REGISTRY_KEYS.SIZE_FACTOR_KEY not in self.adata_manager.data_registry:
             raise ValueError(f"Have to register {REGISTRY_KEYS.SIZE_FACTOR_KEY} when using 'nb' or 'zinb' loss.")
 
         if "modality_lengths" not in adata.uns:
@@ -197,7 +195,7 @@ class MultiVAE(BaseModelClass, ArchesMixin):
         self.cont_covs_idx = []
         self.cont_covariate_dims = []
         if len(cont_covs := self.adata_manager.get_state_registry(REGISTRY_KEYS.CONT_COVS_KEY)) > 0:
-            for i, key in enumerate(cont_covs["columns"]):
+            for i, key in enumerate(cont_covs.get("columns", [])):
                 if key not in ignore_covariates:
                     self.cont_covs_idx.append(i)
                     self.cont_covariate_dims.append(1)
@@ -651,9 +649,10 @@ class MultiVAE(BaseModelClass, ArchesMixin):
             for i, embed in enumerate(model.module.cat_covariate_embeddings):
                 if num_of_cat_to_add[i] > 0:  # unfreeze the ones where categories were added
                     embed.weight.requires_grad = True
-            if model.module.integrate_on_idx is not None:
+            if model.module.integrate_on_idx is not None and any(p.numel() > 0 for p in model.module.theta):
+                # Unfreeze theta parameters that have non-zero size (i.e., NB/ZINB losses)
                 for p in model.module.theta:
-                    if not p.numel() > 0:
+                    if p.numel() > 0:
                         p.requires_grad = True
 
         model.module.eval()

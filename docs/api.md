@@ -23,3 +23,15 @@
 
     module.MultiVAETorch
 ```
+
+## Data
+
+```{eval-rst}
+.. module:: multigrate.data
+.. currentmodule:: multigrate
+
+.. autosummary::
+    :toctree: generated
+
+    data.organize_multimodal_anndatas
+```

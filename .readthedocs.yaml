@@ -9,7 +9,8 @@ build:
       - asdf plugin add uv
       - asdf install uv latest
       - asdf global uv latest
+      - uv sync --group doc
     build:
       html:
-        - uvx hatch run docs:build
+        - uv run sphinx-build -M html docs docs/_build -W
         - mv docs/_build $READTHEDOCS_OUTPUT

@@ -54,6 +54,7 @@ def organize_multimodal_anndatas(
     datasets_obs = {}
     modality_lengths = [-1] * len(adatas)
     modality_var_names = {}
+    modality_vars: dict[int, pd.DataFrame] = {}
     group_has_any = [False] * n_groups
 
     # sanity checks and preparing data for concat
@@ -98,6 +99,9 @@ def organize_multimodal_anndatas(
                 else:
                     cols_to_use = adata.obs.columns.difference(datasets_obs[i].columns)
                     datasets_obs[i] = datasets_obs[i].join(adata.obs[cols_to_use])
+                modality_var_names[mod] = adata.var_names
+                if mod not in modality_vars:
+                    modality_vars[mod] = adata.var
 
     if not all(group_has_any):
         bad = [i for i, ok in enumerate(group_has_any) if not ok]
@@ -143,6 +147,27 @@ def organize_multimodal_anndatas(
 
     # we will need modality_length later for the model init
     multimodal_anndata.uns["modality_lengths"] = modality_lengths
+
+    # preserve .var metadata across modalities; suffix overlapping column names with modality index (issue #4)
+    col_counts: dict[str, int] = {}
+    for df in modality_vars.values():
+        for col in df.columns:
+            col_counts[col] = col_counts.get(col, 0) + 1
+    shared_cols = {col for col, n in col_counts.items() if n > 1}
+
+    var_dfs = []
+    for mod in range(len(adatas)):
+        if mod in modality_vars:
+            df = modality_vars[mod].copy()
+            if shared_cols:
+                df = df.rename(columns={c: f"{c}_{mod}" for c in df.columns if c in shared_cols})
+            var_dfs.append(df)
+
+    multimodal_anndata.var_names_make_unique()
+    if var_dfs:
+        combined_var = pd.concat(var_dfs)
+        combined_var.index = multimodal_anndata.var_names
+        multimodal_anndata.var = combined_var
 
     # check if var_names are unique and make them so if not with a warning
     if not multimodal_anndata.var_names.is_unique:

@@ -86,13 +86,19 @@ class StratifiedSampler(torch.utils.data.sampler.Sampler):
             else:
                 raise ValueError("Invalid input for drop_last param. Must be bool or int.")
 
-            if drop_last_n != 0:
-                tmp += n_obs // self.min_size_per_class
-            else:
-                tmp += ceil(n_obs / self.min_size_per_class)
+            n_chunks = n_obs // self.min_size_per_class if drop_last_n != 0 else ceil(n_obs / self.min_size_per_class)
+            # Always keep at least one chunk per class so that training never silently
+            # no-ops due to all observations being dropped by drop_last.
+            tmp += max(n_chunks, 1)
 
         classes_per_batch = int(self.batch_size / self.min_size_per_class)
         self.length = ceil(tmp / classes_per_batch)
+        if self.length == 0:
+            raise ValueError(
+                f"StratifiedSampler produced 0 batches. "
+                f"batch_size ({self.batch_size}) or min_size_per_class ({self.min_size_per_class}) "
+                f"is too large for the data. Try reducing batch_size in train()."
+            )
 
     def __iter__(self):
         classes_per_batch = int(self.batch_size / self.min_size_per_class)
@@ -118,7 +124,8 @@ class StratifiedSampler(torch.utils.data.sampler.Sampler):
             else:
                 raise ValueError("Invalid input for drop_last param. Must be bool or int.")
 
-            if drop_last_n != 0:
+            # Only trim the tail when doing so still leaves at least one chunk for this class.
+            if drop_last_n != 0 and n_obs - drop_last_n >= self.min_size_per_class:
                 idx = idx[:-drop_last_n]
 
             data_iter.extend(
