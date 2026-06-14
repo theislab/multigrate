@@ -23,27 +23,33 @@ See the paired integration tutorial for advice on which distributions and losses
 
 ## Installation
 
-You need to have Python 3.10 or newer installed on your system. We recommend installing [Mambaforge](https://github.com/conda-forge/miniforge#mambaforge).
+You need to have Python 3.12 or newer installed on your system.
 
-To create and activate a new environment:
+### Quick start
 
-```bash
-mamba create --name multigrate python=3.10
-mamba activate multigrate
-```
-
-Next, there are several alternative options to install multigrate:
-
-1. Install the latest release of `multigrate` from [PyPI][link-pypi]:
+To install the latest release of `multigrate` from [PyPI][link-pypi]:
 
 ```bash
 pip install multigrate
 ```
 
-2. Or install the latest development version:
+Or install the latest development version:
 
 ```bash
 pip install git+https://github.com/theislab/multigrate.git@main
+```
+
+### Development setup
+
+For development, we recommend using [`uv`](https://docs.astral.sh/uv/) for fast dependency management:
+
+```bash
+# Clone the repository
+git clone https://github.com/theislab/multigrate.git
+cd multigrate
+
+# Install in development mode with all optional dependencies
+uv sync --all-groups
 ```
 
 ## Release notes
