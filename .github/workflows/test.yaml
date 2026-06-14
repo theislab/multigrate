@@ -23,6 +23,7 @@ jobs:
         include:
           - python-version: "3.13"
             prerelease: true
+            os: ubuntu-latest
 
     name: Python ${{ matrix.python-version }}${{ matrix.prerelease && ' (pre-release)' || '' }}
     runs-on: ${{ matrix.os }}
