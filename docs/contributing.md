@@ -11,7 +11,7 @@ the [scientific Python tutorials][], or the [scanpy developer guide][].
 [scientific Python tutorials]: https://learn.scientific-python.org/development/tutorials/
 [scanpy developer guide]: https://scanpy.readthedocs.io/en/latest/dev/index.html
 
-:::{tip} The *uv* project manager
+:::{tip} The _uv_ project manager
 
 We recommend using [`uv`][uv] to manage dependencies for this project.
 `uv` is a fast Python package manager that
